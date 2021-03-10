@@ -1,5 +1,7 @@
 ﻿using System;
 using System.IO;
+using System.Linq;
+using System.Text.RegularExpressions;
 using static AGF2BMP2AGF.Algorithm;
 
 // ReSharper disable InconsistentNaming
@@ -10,6 +12,9 @@ namespace AGF2BMP2AGF
 	{
 		internal const ConsoleColor ErrorColor = ConsoleColor.Red;
 		private const ConsoleColor WarningColor = ConsoleColor.Yellow;
+
+		//private static readonly Regex ArgsParser = new(@"(?<quote>[""]?)(?<param>(?:\k<quote>{2}|[^""]+)*)\k<quote>[ ]+", RegexOptions.Compiled);
+		private static readonly Regex ArgsParser = new(" *[^\";]* *| *\"[^\";]*\" *", RegexOptions.Compiled);
 
 		internal static void Print(ConsoleColor color, string message, params object[] formatted)
 		{
@@ -35,9 +40,16 @@ namespace AGF2BMP2AGF
 				Print(ErrorColor, ex.ToString());
 			}
 #if DEBUG
-				Console.WriteLine("Press 'R' to repeat or any key to exit...");
-				var key = Console.ReadKey(true);
-				if (key.Key != ConsoleKey.R) break;
+			 argv = new[] { argv[0], null, null, null, null, };
+				Console.WriteLine("DEBUG: Enter new argument string...");
+				var newArgsIn = Console.ReadLine();
+				if (string.IsNullOrWhiteSpace(newArgsIn)) return res;
+				var matches = ArgsParser.Matches(newArgsIn);
+				var newArgs = matches.Cast<Match>().Where(m=>!string.IsNullOrWhiteSpace(m.Value)).Take(4).Select(v => v.Value).ToArray();
+				for (int i = 0; i < newArgs.Length; i++)
+				{
+					argv[i+1] = newArgs[i].Trim();
+				}
 			}
 #endif
 			return res;
@@ -141,11 +153,13 @@ switch:
 				  in directory mode it will create a directory with same name but with the output type suffixed,
 				  _X_AGF for packing (to prevent overwriting existing files) and _BMP for unpacking
 
-	input_agf: if packing, this argument specifies location of original AGF file, if omitted:
+	original_agf: not required if unpacking.
+	           this argument specifies location of original AGF files, if omitted:
 	           in file mode it will use the same file name but with AGF extension,
 	           in directory mode it will use the input directory
 	
 	Search for files in directory is recursive so files in subfolders are included and structure is maintained in output directory.
+	When packing, output and original_agf must not be the same in order to prevent overwriting files.
 	Original AGF files are required to pack BMP files back into same format.";
 			// ReSharper restore StringLiteralTypo
 			Print(WarningColor, help);

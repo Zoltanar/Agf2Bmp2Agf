@@ -10,11 +10,12 @@ namespace AGF2BMP2AGF
 {
 	internal class Algorithm
 	{
-		internal static ProcessData CurrentProcessData = new();
-		internal static readonly Dictionary<int, FileStream> FileHandles = new();
-
 		private const ulong AGF_TYPE_24BIT = 1;
 		private const ulong AGF_TYPE_32BIT = 2;
+		private const bool useExistingPal = true;
+
+		internal static ProcessData CurrentProcessData = new();
+		internal static readonly Dictionary<int, FileStream> FileHandles = new();
 
 		private static unsafe void read_bmp(int fd, out byte[] buffer, out long length, out BITMAPINFOHEADER bmi)
 		{
@@ -32,10 +33,6 @@ namespace AGF2BMP2AGF
 				// ReSharper disable once UnusedVariable
 				var bmf = ByteArrayToStructure<BITMAPFILEHEADER>(bmfB);
 				bmi = ByteArrayToStructure<BITMAPINFOHEADER>(bmiB);
-				//CurrentProcessData.BmpFile.Data = buffer;
-				//CurrentProcessData.BmpFile.PalLength = buffer.Length - (sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER));
-				//if (!CurrentProcessData.Compare()) throw new InvalidOperationException("Output BMP read back did not match previous data.");
-
 			}
 			finally
 			{
@@ -46,20 +43,23 @@ namespace AGF2BMP2AGF
 		internal static int Pack(int bmpFd, int outFd)
 		{
 			read_bmp(bmpFd, out var decodedData, out _, out var bmi);
-			EncodeColorMap(decodedData, bmi, out var encodedData, out var outAlphaBuff, out var palBuff);
-			CurrentProcessData.Encoding = new DecodingData(bmi, encodedData, palBuff, outAlphaBuff, decodedData);/*
-			//if (!CurrentProcessData.CompareMapCoding(1)) throw new InvalidOperationException("Output BMP read back did not match previous data.");
-			CurrentProcessData.OutBmpFile.AlphaBuff = outAlphaBuff.ToArray();
-			CurrentProcessData.OutBmpFile.Buff = encodedData.ToArray();
-			CurrentProcessData.OutBmpFile.PalLength = palBuff.Length;
-			//if (!CurrentProcessData.Compare(1)) throw new InvalidOperationException("Output BMP read back did not match previous data.");*/
+			byte[] encodedData;
+			byte[] outAlphaBuff = null;
+			RGBQUAD[] palBuff;
+			if (CurrentProcessData.AgfFile.AgfHeader.type == AGF_TYPE_32BIT) EncodeColorMap(decodedData, bmi, out encodedData, out outAlphaBuff, out palBuff);
+			else EncodeColorMap24bpp(decodedData, bmi, out encodedData, out palBuff);
+			CurrentProcessData.Encoding = new DecodingData(bmi, encodedData, palBuff, outAlphaBuff, decodedData);
 			write_agf(outFd, encodedData, palBuff, outAlphaBuff);
 			return 0;
 		}
 
+		private static void EncodeColorMap24bpp(byte[] decodedData, BITMAPINFOHEADER bmi, out byte[] encodedData, out RGBQUAD[] palBuff)
+		{
+			throw new NotImplementedException();
+		}
+
 		private static unsafe void write_agf(int fd, byte[] encodedData, RGBQUAD[] palArray, byte[] alphaBuff)
 		{
-			//if (!CurrentProcessData.CompareMapCoding(1)) throw new InvalidOperationException("Output BMP read back did not match previous data.");
 			var fileStream = FileHandles[fd];
 			try
 			{
@@ -88,7 +88,7 @@ namespace AGF2BMP2AGF
 				return -1;
 			}
 			read_sect(fd, out var bmphdr_buff, out var bmphdr_len);
-			read_sect(fd, out var buff, out var len);
+			read_sect(fd, out var buff, out _);
 			//CurrentProcessData.AgfFile.Data = buff.ToArray();
 			// Notice there's a gap of 2 bytes between these... alignment I guess.
 			var bmf = ByteArrayToStructure<BITMAPFILEHEADER>(bmphdr_buff);
@@ -112,26 +112,37 @@ namespace AGF2BMP2AGF
 											//rgba_len,
 						bmi.biWidth,
 						bmi.biHeight,
-						4);
+						4,
+						null);
 				}
 			}
 			else
 			{
 				if (out_filename != null)
 				{
-					write_bmp_ex(out_filename,
-						buff,
-						len,
+					var colorMap = DecodeColorMap24Bit(bmi, buff, pal);
+					write_bmp(out_filename,
+						colorMap,
 						bmi.biWidth,
 						bmi.biHeight,
-						bmi.biBitCount / 8,
-						bmi.biClrUsed,
+						1,
 						pal);
 				}
 			}
-
 			close(fd);
 			return 0;
+		}
+
+		private static void ByteCompare(string file1, string file2)
+		{
+			var oBytes = File.ReadAllBytes(file1);
+			var nBytes = File.ReadAllBytes(file2);
+			var equal = ProcessData.CompareCollection(oBytes, nBytes);
+			if (!equal)
+			{
+				var oBmf = ByteArrayToStructure<BITMAPFILEHEADER>(oBytes);
+				var nBmf = ByteArrayToStructure<BITMAPFILEHEADER>(nBytes);
+			}
 		}
 
 		private static byte[] DecodeColorMap(BITMAPINFOHEADER bmi, byte[] encodedData, RGBQUAD[] palArray, byte[] alphaBuff)
@@ -166,16 +177,45 @@ namespace AGF2BMP2AGF
 			CurrentProcessData.Decoding = new DecodingData(bmi, encodedData, palArray, alphaBuff, decodedData);
 			return decodedData;
 		}
-
+		
+		private static byte[] DecodeColorMap24Bit(BITMAPINFOHEADER bmi, byte[] encodedData, RGBQUAD[] palArray)
+		{
+			ulong rgba_len = (ulong)(bmi.biWidth * bmi.biHeight);
+			byte[] decodedData = new byte[rgba_len];
+			uint rgb_stride = (uint)((bmi.biWidth * bmi.biBitCount / 8 + 3) & ~3);
+			for (long y = 0; y < bmi.biHeight; y++)
+			{
+				uint rgba_line = (uint)(y * bmi.biWidth);
+				long rgb_line = y * rgb_stride;
+				for (long x = 0; x < bmi.biWidth; x++)
+				{
+					long blueIndex = rgba_line + x;
+					if (bmi.biBitCount == 8)
+					{
+						var palIndex = encodedData[y * rgb_stride + x];
+						decodedData[blueIndex] = palIndex;
+					}
+					else
+					{
+						decodedData[blueIndex] = encodedData[rgb_line + x * 3 + 0];
+						decodedData[blueIndex + 1] = encodedData[rgb_line + x * 3 + 1];
+						decodedData[blueIndex + 2] = encodedData[rgb_line + x * 3 + 2];
+					}
+				}
+			}
+			CurrentProcessData.Decoding = new DecodingData(bmi, encodedData, palArray, null, decodedData);
+			return decodedData;
+		}
+		
 		private static void EncodeColorMap(byte[] decodedData, BITMAPINFOHEADER bmi, out byte[] encodedData, out byte[] alpha_buff, out RGBQUAD[] pal)
 		{
-			uint rgb_stride = (uint)((CurrentProcessData.Decoding.Bmi.biWidth * CurrentProcessData.Decoding.Bmi.biBitCount / 8 + 3) & ~3); //(uint)((bmi.biWidth * bmi.biBitCount / 8 + 3) & ~3);
-			alpha_buff = new byte[CurrentProcessData.Decoding.AlphaBuff.Length];//byte[rgb_stride * bmi.biHeight / 4]; //bmi.biWidth * bmi.biHeight * bmi.biBitCount/8];
-			encodedData = new byte[CurrentProcessData.Decoding.EncodedData.Length];
-			bool useExistingPal = CurrentProcessData?.Decoding?.PalArray != null;
-			pal = useExistingPal ? CurrentProcessData.Decoding.PalArray : new RGBQUAD[256/*CurrentProcessData.AgfFile.PalLength*/];
-			var palList = useExistingPal ? pal.ToList() : new List<RGBQUAD>();
-			CurrentProcessData.Decoding.AdditionalPalMap = new Dictionary<RGBQUAD, int>();
+			var original8bpp = CurrentProcessData.Decoding.Bmi.biBitCount == 8;
+			if (!original8bpp) { }
+			uint rgb_stride = (uint)((bmi.biWidth * CurrentProcessData.Decoding.Bmi.biBitCount / 8 + 3) & ~3);
+			alpha_buff = new byte[original8bpp ? bmi.biHeight * bmi.biWidth : CurrentProcessData.Decoding.AlphaBuff.Length];
+			encodedData = new byte[original8bpp ? bmi.biHeight * bmi.biWidth : CurrentProcessData.Decoding.EncodedData.Length];
+			var palList = useExistingPal ? CurrentProcessData?.Decoding?.PalArray.ToList() : new List<RGBQUAD>();
+			var additionalPalMap = new Dictionary<RGBQUAD, int>();
 			for (long y = 0; y < bmi.biHeight; y++)
 			{
 				uint alp_lineLoc = (uint)((bmi.biHeight - y - 1) * bmi.biWidth);
@@ -183,9 +223,8 @@ namespace AGF2BMP2AGF
 				long rgb_line = y * rgb_stride;
 				for (long x = 0; x < bmi.biWidth; x++)
 				{
-
 					long blueIndex = rgba_line + x * 4 + 0;
-					if (CurrentProcessData.Decoding.Bmi.biBitCount == 8)
+					if (original8bpp)
 					{
 						var newPal = new RGBQUAD
 						{
@@ -196,9 +235,7 @@ namespace AGF2BMP2AGF
 						var palIndex = palList.IndexOf(newPal);
 						if (palIndex == -1)
 						{
-							palIndex = FindNearestPal(newPal, palList, CurrentProcessData.Decoding.AdditionalPalMap);/*
-							palIndex = palList.Count;
-							palList.Add(newPal);*/
+							palIndex = useExistingPal ? FindNearestPal(newPal, palList, additionalPalMap) : GetPal(newPal, palList, additionalPalMap);
 						}
 						encodedData[y * rgb_stride + x] = (byte)palIndex;
 					}
@@ -211,6 +248,26 @@ namespace AGF2BMP2AGF
 					alpha_buff[alp_lineLoc + x] = decodedData[blueIndex + 3];
 				}
 			}
+			if (palList.Count < 256) palList.AddRange(Enumerable.Repeat(new RGBQUAD(), 256 - palList.Count));
+			pal = palList.ToArray();
+		}
+
+		private static int GetPal(RGBQUAD inputPal, List<RGBQUAD> palList, Dictionary<RGBQUAD, int> additionalPalMap)
+		{
+			if (palList.Count < 256)
+			{
+				int palIndex = palList.Count;
+				palList.Add(inputPal);
+				return palIndex;
+			}
+			if (additionalPalMap.TryGetValue(inputPal, out var addPal)) return addPal;
+			var ind = palList
+				.IndexOf(palList
+					.OrderBy(x =>
+						Math.Sqrt(Math.Pow(x.rgbBlue - inputPal.rgbBlue, 2) + Math.Pow(x.rgbGreen - inputPal.rgbGreen, 2) + Math.Pow(x.rgbRed - inputPal.rgbRed, 2)))
+					.First());
+			additionalPalMap[inputPal] = ind;
+			return ind;
 		}
 
 		private static int FindNearestPal(RGBQUAD inputPal, List<RGBQUAD> palList, Dictionary<RGBQUAD, int> additionalPalMap)
@@ -256,26 +313,21 @@ namespace AGF2BMP2AGF
 			return bytes;
 		}
 
-		// ReSharper disable UnusedParameter.Local
-		private static void write_bmp_ex(string outFilename, byte[] buff, ulong len, int bmiBiWidth, int bmiBiHeight, int bmiBiBitCount, uint bmiBiClrUsed, RGBQUAD[] pal)
-		// ReSharper restore UnusedParameter.Local
-		{
-			throw new NotImplementedException();
-		}
-
 		private static unsafe void write_bmp(string filename,
 			byte[] buff,
 			int width,
 			int height,
-			byte depth_bytes)
+			byte depth_bytes,
+			RGBQUAD[] palArray)
 		{
 			//var f = Array.FindIndex(buff, a => a != 0);
 			BITMAPFILEHEADER bmf = new BITMAPFILEHEADER();
 			BITMAPINFOHEADER bmi = new BITMAPINFOHEADER();
 
 			bmf.bfType = 0x4D42;
-			bmf.bfSize = (uint)sizeof(BITMAPFILEHEADER) + (uint)sizeof(BITMAPINFOHEADER) + (uint)buff.Length;
-			bmf.bfOffBits = (uint)sizeof(BITMAPFILEHEADER) + (uint)sizeof(BITMAPINFOHEADER);
+			var offBits = (uint)(sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER) + (sizeof(RGBQUAD) * (palArray?.Length ?? 0)));
+			bmf.bfSize = (uint)offBits + (uint)buff.Length;
+			bmf.bfOffBits = offBits;
 
 			bmi.biSize = (uint)sizeof(BITMAPINFOHEADER);
 			bmi.biWidth = width;
@@ -289,7 +341,8 @@ namespace AGF2BMP2AGF
 			var fileStream = File.OpenWrite(filename);
 			fileStream.Write(Operation.StructToBytes(bmf), 0, sizeof(BITMAPFILEHEADER));
 			fileStream.Write(Operation.StructToBytes(bmi), 0, sizeof(BITMAPINFOHEADER));
-			fileStream.Write(buff, 0, buff.Length);
+			var paletteAndMap = depth_bytes == 1 ? palArray.SelectMany(StructToBytes).Concat(buff).ToArray() : buff;
+			fileStream.Write(paletteAndMap, 0, paletteAndMap.Length);
 			fileStream.Close();
 		}
 		private static unsafe void read_sect(int fd, out byte[] out_buff, out ulong out_len)

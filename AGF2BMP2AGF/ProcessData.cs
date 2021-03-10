@@ -39,7 +39,7 @@ namespace AGF2BMP2AGF
 		}
 		
 		// ReSharper disable once UnusedMember.Local
-		private static bool CompareCollection<T>(T[] a, T[] b)
+		internal static bool CompareCollection<T>(T[] a, T[] b)
 		{
 			if (a.Length != b.Length) return false;
 			if (a.SequenceEqual(b)) return true;
@@ -81,15 +81,14 @@ namespace AGF2BMP2AGF
 		public byte[] AlphaBuff { get; }
 		public byte[] EncodedData { get; }
 		public RGBQUAD[] PalArray { get; }
-		public Dictionary<RGBQUAD, int> AdditionalPalMap { get; set; }
 
 		public DecodingData(BITMAPINFOHEADER bmi, byte[] encodedData, RGBQUAD[] pal, byte[] alphaBuff, byte[] decodedData)
 		{
 			Bmi = bmi;
-			EncodedData = encodedData.ToArray();
+			EncodedData = encodedData?.ToArray();
 			PalArray = pal.ToArray();
-			AlphaBuff = alphaBuff.ToArray();
-			DecodedData = decodedData.ToArray();
+			AlphaBuff = alphaBuff?.ToArray();
+			DecodedData = decodedData?.ToArray();
 		}
 	}
 }

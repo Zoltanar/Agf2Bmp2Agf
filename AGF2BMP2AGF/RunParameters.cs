@@ -73,7 +73,7 @@ namespace AGF2BMP2AGF
 				return;
 			}
 			IsFileMode = isFileMode.Value;
-			if (argv.Length > 3) OutputPath = argv[3];
+			if (argv.Length > 3 && !string.IsNullOrWhiteSpace(argv[3])) OutputPath = argv[3];
 			else
 			{
 				OutputPath = Mode switch
@@ -86,7 +86,7 @@ namespace AGF2BMP2AGF
 			}
 			if (Mode == ProcessMode.Pack)
 			{
-				if (argv.Length > 4) OriginalAgfPath = argv[4];
+				if (argv.Length > 4 && !string.IsNullOrWhiteSpace(argv[4])) OriginalAgfPath = argv[4];
 				else
 				{
 					Debug.Assert(InputPath != null, nameof(InputPath) + " != null");
@@ -102,7 +102,7 @@ namespace AGF2BMP2AGF
 			}
 			if (Mode == ProcessMode.UnpackAndPack)
 			{
-				IntermediateBmpPath = IsFileMode ? $"{Path.GetFileNameWithoutExtension(InputPath)}_X.BMP" : $"{InputPath}_X_BMP";
+				IntermediateBmpPath = IsFileMode ? ReplaceExtension(InputPath,"_X.BMP") : $"{InputPath}_X_BMP";
 			}
 			Valid = true;
 		}
