@@ -135,11 +135,20 @@ namespace AGF2BMP2AGF
 			return anyFailure ? -1 : 0;
 		}
 
+		private static string Version
+		{
+			get
+			{
+				var ver = typeof(Program).Assembly.GetName().Version;
+				return $"v{ver.Major}.{ver.Minor}";
+			}
+		}
+
 		private static void PrintHelp(string thisFile)
 		{
 			string help =
 				// ReSharper disable StringLiteralTypo
-				$@"agf2bmp2agf by Zoltanar, modified from asmodean's agf2bmp
+				$@"agf2bmp2agf ({Version}) by Zoltanar, modified from asmodean's agf2bmp
 Using LZSS compression by Haruhiko Okumura modified by Shawn Hargreaves and Xuan (LzssCpp.dll)
 
 Usage: {thisFile} <switch> <input> [output] [original_agf]
