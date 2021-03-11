@@ -1,8 +1,10 @@
 ﻿using System;
 using System.IO;
+using static AGF2BMP2AGF.Algorithm;
+#if DEBUG
 using System.Linq;
 using System.Text.RegularExpressions;
-using static AGF2BMP2AGF.Algorithm;
+#endif
 
 // ReSharper disable InconsistentNaming
 
@@ -13,8 +15,9 @@ namespace AGF2BMP2AGF
 		internal const ConsoleColor ErrorColor = ConsoleColor.Red;
 		private const ConsoleColor WarningColor = ConsoleColor.Yellow;
 
-		//private static readonly Regex ArgsParser = new(@"(?<quote>[""]?)(?<param>(?:\k<quote>{2}|[^""]+)*)\k<quote>[ ]+", RegexOptions.Compiled);
+#if DEBUG
 		private static readonly Regex ArgsParser = new(" *[^\";]* *| *\"[^\";]*\" *", RegexOptions.Compiled);
+#endif
 
 		internal static void Print(ConsoleColor color, string message, params object[] formatted)
 		{
@@ -31,24 +34,24 @@ namespace AGF2BMP2AGF
 			while (true)
 			{
 #endif
-			try
-			{
-				res = Main2(argv);
-			}
-			catch (Exception ex)
-			{
-				Print(ErrorColor, ex.ToString());
-			}
+				try
+				{
+					res = Main2(argv);
+				}
+				catch (Exception ex)
+				{
+					Print(ErrorColor, ex.ToString());
+				}
 #if DEBUG
-			 argv = new[] { argv[0], null, null, null, null, };
+				argv = new[] { argv[0], null, null, null, null, };
 				Console.WriteLine("DEBUG: Enter new argument string...");
 				var newArgsIn = Console.ReadLine();
 				if (string.IsNullOrWhiteSpace(newArgsIn)) return res;
 				var matches = ArgsParser.Matches(newArgsIn);
-				var newArgs = matches.Cast<Match>().Where(m=>!string.IsNullOrWhiteSpace(m.Value)).Take(4).Select(v => v.Value).ToArray();
+				var newArgs = matches.Cast<Match>().Where(m => !string.IsNullOrWhiteSpace(m.Value)).Take(4).Select(v => v.Value).ToArray();
 				for (int i = 0; i < newArgs.Length; i++)
 				{
-					argv[i+1] = newArgs[i].Trim();
+					argv[i + 1] = newArgs[i].Trim();
 				}
 			}
 #endif
@@ -57,12 +60,12 @@ namespace AGF2BMP2AGF
 
 		private static int Main2(string[] argv)
 		{
-			var argc = argv.Length;
-			if (argc < 3)
+			if (argv.Length < 2)
 			{
 				PrintHelp(argv[0]);
 				return -1;
 			}
+			argv = argv.Length == 2 ? new[] { argv[0], "-u", argv[1] } : argv;
 			var runParameters = new RunParameters(argv);
 			if (!runParameters.Valid)
 			{
@@ -140,7 +143,7 @@ namespace AGF2BMP2AGF
 Using LZSS compression by Haruhiko Okumura modified by Shawn Hargreaves and Xuan (LzssCpp.dll)
 
 Usage: {thisFile} <switch> <input> [output] [original_agf]
-
+       or {thisFile} <input> (for unpacking)
 switch:
 	-p	Pack input file(s) of BMP type into AGF format
 	-u	Unpack input file(s) of AGF type into BMP format
