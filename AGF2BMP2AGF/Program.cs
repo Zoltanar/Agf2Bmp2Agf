@@ -14,7 +14,7 @@ namespace AGF2BMP2AGF
 		internal const ConsoleColor ErrorColor = ConsoleColor.Red;
 		private const ConsoleColor WarningColor = ConsoleColor.Yellow;
 		internal const ConsoleColor SuccessColor = ConsoleColor.Green;
-		
+
 		public static string Version
 		{
 			get
@@ -24,10 +24,22 @@ namespace AGF2BMP2AGF
 			}
 		}
 
-		internal static void Print(ConsoleColor color, string message, params object[] formatted)
+		public static bool RewriteWithNextLine { get; set; }
+
+		internal static void Print(ConsoleColor color, string message, bool rewriteWithNextLine = false)
 		{
+			if (RewriteWithNextLine)
+			{
+				//go back to left and write blank line
+				Console.CursorLeft = 0;
+				Console.Write(new string(Enumerable.Repeat(' ', Console.WindowWidth - 1).ToArray()));
+				//go back to left to overwrite blank line with new line
+				Console.CursorLeft = 0;
+			}
+			RewriteWithNextLine = rewriteWithNextLine;
 			Console.ForegroundColor = color;
-			Console.WriteLine(message, formatted);
+			Console.Write(message);
+			if (!rewriteWithNextLine) Console.WriteLine();
 			Console.ResetColor();
 		}
 
@@ -35,14 +47,14 @@ namespace AGF2BMP2AGF
 		{
 			var argv = Environment.GetCommandLineArgs();
 			int res = -1;
-				try
-				{
-					res = Main2(argv);
-				}
-				catch (Exception ex)
-				{
-					Print(ErrorColor, ex.ToString());
-				}
+			try
+			{
+				res = Main2(argv);
+			}
+			catch (Exception ex)
+			{
+				Print(ErrorColor, ex.ToString());
+			}
 #if DEBUG
 			Console.WriteLine("Press any key to exit...");
 			Console.ReadKey(true);
@@ -84,15 +96,27 @@ namespace AGF2BMP2AGF
 				index++;
 				//reset current data.
 				CurrentProcessData = new ProcessData();
-				if (files.Length > 1) Print(WarningColor, file.GetDescription(index, files.Length, formatString));
-				var result = file.Mode switch
+				if (files.Length > 1)
 				{
-					ProcessMode.Unpack => Unpack(file),
-					ProcessMode.Pack => Pack(file),
-					ProcessMode.UnpackAndPack => UnpackAndPack(file),
-					_ => throw new ArgumentOutOfRangeException()
-				};
-				if (result != 0) anyFailure = true;
+					if (runParameters.LogErrorsOnly && runParameters.IsFileMode) Print(WarningColor, $"Processing file {index.ToString(formatString)}/{files.Length}", true);
+					else Print(WarningColor, file.GetDescription(index, files.Length, formatString));
+				}
+				try
+				{
+					var result = file.Mode switch
+					{
+						ProcessMode.Unpack => Unpack(file),
+						ProcessMode.Pack => Pack(file),
+						ProcessMode.UnpackAndPack => UnpackAndPack(file),
+						_ => throw new ArgumentOutOfRangeException()
+					};
+					if (result != 0) anyFailure = true;
+				}
+				catch (Exception ex)
+				{
+					anyFailure = true;
+					Print(ErrorColor, $"{file.GetDescription(index, files.Length, formatString)} - Failed: {ex}");
+				}
 			}
 			return anyFailure ? -1 : 0;
 		}
@@ -131,24 +155,27 @@ namespace AGF2BMP2AGF
 				$@"agf2bmp2agf ({Version}) by Zoltanar, modified from asmodean's agf2bmp
 Using LZSS compression by Haruhiko Okumura modified by Shawn Hargreaves and Xuan (LzssCpp.dll)
 
-Usage: {thisFile} <switch> <input> [output] [original_agf]
+Usage: {thisFile} [switches] <input> [output] [original_agf]
        or {thisFile} <input> (for unpacking)
-switch:
-	-p	Pack input file(s) of BMP type into AGF format
-	-u	Unpack input file(s) of AGF type into BMP format
-	-x	Unpacks input file(s) of AGF type into BMP format, then repacks them back
+  mode switches, only one possible, defaults to Pack if omitted:
+         -p  Pack input file(s) of BMP type into AGF format
+         -u  Unpack input file(s) of AGF type into BMP format
+         -x  Unpacks input file(s) of AGF type into BMP format, then repacks them back
 
-	input: path to input file or directory (in which case all BMP files in directory will be the inputs).
+  other switches, not mandatory:
+         -e  Log errors only (affects directory mode only)
+  
+  input: path to input file or directory (in which case all BMP files in directory will be the inputs).
 
-	output: path to output file or directory, if input is a directory, this must also be a directory, if omitted:
-				  in file mode it will use the same file name but change extension (e.g: MyFile.AGF),
-				  in directory mode it will create a directory with same name but with the output type suffixed,
-				  _X_AGF for packing (to prevent overwriting existing files) and _BMP for unpacking
+  output:  path to output file or directory, if input is a directory, this must also be a directory, if omitted:
+           in file mode it will use the same file name but change extension (e.g: MyFile.AGF),
+           in directory mode it will create a directory with same name but with the output type suffixed,
+           _X_AGF for packing (to prevent overwriting existing files) and _BMP for unpacking
 
-	original_agf: not required if unpacking.
-	           this argument specifies location of original AGF files, if omitted:
-	           in file mode it will use the same file name but with AGF extension,
-	           in directory mode it will use the input directory
+  original_agf:  not required if unpacking.
+                 this argument specifies location of original AGF files, if omitted:
+                 in file mode it will use the same file name but with AGF extension,
+                 in directory mode it will use the input directory
 	
 	Search for files in directory is recursive so files in subfolders are included and structure is maintained in output directory.
 	When packing, output and original_agf must not be the same in order to prevent overwriting files.
@@ -160,7 +187,6 @@ switch:
 
 	internal enum ProcessMode
 	{
-		Invalid = 0,
 		Unpack = 1,
 		Pack = 2,
 		UnpackAndPack = 3

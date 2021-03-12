@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 
 namespace AGF2BMP2AGF
 {
@@ -14,7 +15,8 @@ namespace AGF2BMP2AGF
 		private string _intermediateBmpPath;
 
 		public ProcessMode Mode { get; set; }
-		public bool IsFileMode { get; set; }
+		public bool IsFileMode { get; }
+		public bool LogErrorsOnly { get; set; }
 		public string InputPath
 		{
 			get => _inputPath;
@@ -52,20 +54,9 @@ namespace AGF2BMP2AGF
 		
 		public RunParameters(string[] argv)
 		{
-			var @switch = argv[1];
-			Mode = argv[1].ToLowerInvariant() switch
-			{
-				"-u" => ProcessMode.Unpack,
-				"-p" => ProcessMode.Pack,
-				"-x" => ProcessMode.UnpackAndPack,
-				_ => ProcessMode.Invalid
-			};
-			if (Mode == ProcessMode.Invalid)
-			{
-				ErrorMessage = $"Invalid switch: {@switch}";
-				return;
-			}
-			InputPath = argv[2];
+			Valid = GetSwitches(argv, out var pathArgs);
+			if (!Valid) return;
+			InputPath = pathArgs[0];
 			bool? isFileMode = File.Exists(InputPath) ? true : Directory.Exists(InputPath) ? false : null;
 			if (isFileMode == null)
 			{
@@ -73,7 +64,7 @@ namespace AGF2BMP2AGF
 				return;
 			}
 			IsFileMode = isFileMode.Value;
-			if (argv.Length > 3 && !string.IsNullOrWhiteSpace(argv[3])) OutputPath = argv[3];
+			if (pathArgs.Length > 1 && !string.IsNullOrWhiteSpace(pathArgs[1])) OutputPath = pathArgs[1];
 			else
 			{
 				OutputPath = Mode switch
@@ -86,7 +77,7 @@ namespace AGF2BMP2AGF
 			}
 			if (Mode == ProcessMode.Pack)
 			{
-				if (argv.Length > 4 && !string.IsNullOrWhiteSpace(argv[4])) OriginalAgfPath = argv[4];
+				if (pathArgs.Length > 2 && !string.IsNullOrWhiteSpace(pathArgs[2])) OriginalAgfPath = pathArgs[2];
 				else
 				{
 					Debug.Assert(InputPath != null, nameof(InputPath) + " != null");
@@ -107,7 +98,63 @@ namespace AGF2BMP2AGF
 			Valid = true;
 		}
 
-		private string ReplaceExtension(string path, string newExtension)
+		private bool GetSwitches(IEnumerable<string> argv, out string[] filePathArgs)
+		{
+			var filePathList = new List<string>();
+			filePathArgs = null;
+			//if no switch present, mode is Unpack.
+			Mode = ProcessMode.Unpack;
+			//flag used to ensure no more than one mode switch is present
+			bool isModeSet = false;
+			foreach (var argument in argv.Skip(1))
+			{
+				switch (argument.ToLowerInvariant())
+				{
+					case "-u":
+						if (isModeSet)
+						{
+							ErrorMessage = "More than one mode switch found, only one argument should indicate process mode.";
+							return false;
+						}
+						Mode = ProcessMode.Unpack;
+						isModeSet = true;
+						continue;
+					case "-p":
+						if (isModeSet)
+						{
+							ErrorMessage = "More than one mode switch found, only one argument should indicate process mode.";
+							return false;
+						}
+						Mode = ProcessMode.Pack;
+						isModeSet = true;
+						continue;
+					case "-x":
+						if (isModeSet)
+						{
+							ErrorMessage = "More than one mode switch found, only one argument should indicate process mode.";
+							return false;
+						}
+						Mode = ProcessMode.UnpackAndPack;
+						isModeSet = true;
+						continue;
+					case "-e":
+						LogErrorsOnly = true;
+						continue;
+					default:
+						if (argument.StartsWith("-"))
+						{
+							ErrorMessage = $"Unrecognized switch : {argument}";
+							return false;
+						}
+						filePathList.Add(argument);
+						continue;
+				}
+			}
+			filePathArgs = filePathList.ToArray();
+			return true;
+		}
+		
+		private static string ReplaceExtension(string path, string newExtension)
 		{
 			var ext = Path.GetExtension(path);
 			return path.Substring(0, path.Length - ext.Length) + newExtension;
