@@ -586,7 +586,7 @@ getout:
 	return size;
 }
 
-int lzss(unsigned char* inputbuf, int inputlen, unsigned char* outputbuf, int outputlen) {
+EXAPI int __stdcall lzss(unsigned char* inputbuf, int inputlen, unsigned char* outputbuf, int outputlen) {
 	LZSS_PACK_DATA* dat = create_lzss_pack_data();
 	int n = lzss_write(outputbuf, outputlen, dat, inputlen, inputbuf, 1);
 	free_lzss_pack_data(dat);
@@ -600,22 +600,8 @@ EXAPI int __stdcall unlzssTest()
 	return 0;
 }
 
-EXAPI int __stdcall unlzss(unsigned char* inputbuf, unsigned char* outputbuf, int* inputlen, int* outputlen)
-{
-	LZSS_UNPACK_DATA* dat = create_lzss_unpack_data();
-	int n = lzss_read(inputbuf, *inputlen, dat, *outputlen, outputbuf);
-	free_lzss_unpack_data(dat);
-	return n;
-}
 
-EXAPI int __stdcall lzss(unsigned char* inputbuf, int* inputlen, unsigned char* outputbuf, int* outputlen) {
-	LZSS_PACK_DATA* dat = create_lzss_pack_data();
-	int n = lzss_write(outputbuf, *outputlen, dat, *inputlen, inputbuf, 1);
-	free_lzss_pack_data(dat);
-	return n;
-}
-
-int unlzss(unsigned char* inputbuf, int inputlen, unsigned char* outputbuf, int outputlen) {
+EXAPI int __stdcall unlzss(unsigned char* inputbuf, int inputlen, unsigned char* outputbuf, int outputlen) {
 	LZSS_UNPACK_DATA* dat = create_lzss_unpack_data();
 	int n = lzss_read(inputbuf, inputlen, dat, outputlen, outputbuf);
 	free_lzss_unpack_data(dat);

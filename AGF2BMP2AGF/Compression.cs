@@ -2,39 +2,29 @@
 
 namespace AGF2BMP2AGF
 {
-	static class Compression
+	internal static class Compression
 	{
-		private const string LibraryName = "LzssCpp.dll"; //"agf2bmp2agfCpp.dll";
+		private const string LibraryName = "LzssCpp.dll";
 
 		[DllImport(LibraryName, CallingConvention = CallingConvention.StdCall)]
 		// ReSharper disable once IdentifierTypo
-		private static extern unsafe int unlzss(byte[] input, byte* output, ref int inputLength, ref int outputLength);
+		private static extern int unlzss(byte[] input, int inputLength, [MarshalAs(UnmanagedType.LPArray)] byte[] output, int outputLength);
 
 		[DllImport(LibraryName, CallingConvention = CallingConvention.StdCall)]
-		private static extern unsafe int lzss(byte[] input, byte* output, ref int inputLength, ref int outputLength);
+		private static extern int lzss(byte[] input, int inputLength, [MarshalAs(UnmanagedType.LPArray)]byte[] output, int outputLength);
 		
-
-		public static unsafe byte[] UnpackLZSS(byte[] buff, ulong len, ulong outLen)
+		public static byte[] UnpackLZSS(byte[] inputData, int outLen)
 		{
-			int len1 = (int)len;
-			int outLen1 = (int)outLen;
-			var outBuf = new byte[outLen];
-			fixed (byte* outPtr = outBuf)
-			{
-				unlzss(buff, outPtr, ref len1, ref outLen1);
-			}
-			return outBuf;
+				var buff = new byte[outLen];
+				unlzss(inputData, inputData.Length, buff, outLen);
+				return buff;
 		}
 
-		public static unsafe byte[] PackLZSS(byte[] buff, ulong len, ref int outLen)
+		public static byte[] PackLZSS(byte[] inputData, int outLen)
 		{
-			int len1 = (int)len;
-			var outBuf = new byte[outLen];
-			fixed (byte* outPtr = outBuf)
-			{
-				lzss(buff, outPtr, ref len1, ref outLen);
-			}
-			return outBuf;
+			var buff = new byte[outLen];
+			lzss(inputData, inputData.Length, buff, outLen);
+			return buff;
 		}
 	}
 }

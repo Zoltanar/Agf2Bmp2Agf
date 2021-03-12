@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using static AGF2BMP2AGF.Operation;
 
 // ReSharper disable InconsistentNaming
@@ -17,18 +18,18 @@ namespace AGF2BMP2AGF
 		internal static ProcessData CurrentProcessData = new();
 		private static readonly Dictionary<int, FileStream> FileHandles = new();
 
-		private static unsafe void read_bmp(int fd, out byte[] buffer, out long length, out BITMAPINFOHEADER bmi)
+		private static void read_bmp(int fd, out byte[] buffer, out long length, out BITMAPINFOHEADER bmi)
 		{
 			var fileStream = FileHandles[fd];
 			CurrentProcessData.BmpFile.FileName = fileStream.Name;
 			try
 			{
-				var bmfB = new byte[sizeof(BITMAPFILEHEADER)];
-				var bmiB = new byte[sizeof(BITMAPINFOHEADER)];
+				var bmfB = new byte[Marshal.SizeOf<BITMAPFILEHEADER>()];
+				var bmiB = new byte[Marshal.SizeOf<BITMAPINFOHEADER>()];
 				length = fileStream.Length - (bmfB.Length + bmiB.Length);
 				buffer = new byte[length];
-				fileStream.Read(bmfB, 0, sizeof(BITMAPFILEHEADER));
-				fileStream.Read(bmiB, 0, sizeof(BITMAPINFOHEADER));
+				fileStream.Read(bmfB, 0, Marshal.SizeOf<BITMAPFILEHEADER>());
+				fileStream.Read(bmiB, 0, Marshal.SizeOf<BITMAPINFOHEADER>());
 				fileStream.Read(buffer, 0, (int)length);
 				// ReSharper disable once UnusedVariable
 				var bmf = ByteArrayToStructure<BITMAPFILEHEADER>(bmfB);
@@ -59,12 +60,12 @@ namespace AGF2BMP2AGF
 		}
 
 
-		private static unsafe void write_agf(int fd, byte[] encodedData, RGBQUAD[] palArray, byte[] alphaBuff)
+		private static void write_agf(int fd, byte[] encodedData, RGBQUAD[] palArray, byte[] alphaBuff)
 		{
 			var fileStream = FileHandles[fd];
 			try
 			{
-				fileStream.Write(StructToBytes(CurrentProcessData.AgfFile.AgfHeader), 0, sizeof(AGFHDR));
+				fileStream.Write(StructToBytes(CurrentProcessData.AgfFile.AgfHeader), 0, Marshal.SizeOf<AGFHDR>());
 				var hdrBytes = StructToBytes(CurrentProcessData.AgfFile.Bmf).Concat(new byte[] { 0, 0 })
 					.Concat(StructToBytes(CurrentProcessData.AgfFile.Bmi));
 				if (palArray != null) hdrBytes = hdrBytes.Concat(palArray.SelectMany(StructToBytes));
@@ -73,7 +74,7 @@ namespace AGF2BMP2AGF
 				write_sect(fd, encodedData);
 				if (alphaBuff != null)
 				{
-					fileStream.Write(StructToBytes(CurrentProcessData.AgfFile.AcifHeader), 0, sizeof(ACIFHDR));
+					fileStream.Write(StructToBytes(CurrentProcessData.AgfFile.AcifHeader), 0, Marshal.SizeOf<ACIFHDR>());
 					write_sect(fd, alphaBuff);
 				}
 			}
@@ -83,9 +84,9 @@ namespace AGF2BMP2AGF
 			}
 		}
 
-		public static unsafe int Unpack(int fd, string filename, string out_filename)
+		public static int Unpack(int fd, string filename, string out_filename)
 		{
-			read(fd, out AGFHDR hdr, sizeof(AGFHDR));
+			read(fd, out AGFHDR hdr, Marshal.SizeOf<AGFHDR>());
 			CurrentProcessData.AgfFile.FileName = filename;
 			CurrentProcessData.AgfFile.AgfHeader = hdr;
 			if (hdr.type != AGF_TYPE_24BIT && hdr.type != AGF_TYPE_32BIT)
@@ -100,11 +101,11 @@ namespace AGF2BMP2AGF
 			var bmi = ByteArrayToStructure<BITMAPINFOHEADER>(bmpHeaderBuff, 16);
 			CurrentProcessData.AgfFile.Bmf = bmf;
 			CurrentProcessData.AgfFile.Bmi = bmi;
-			int offset = 16 + sizeof(BITMAPINFOHEADER);
+			int offset = 16 + Marshal.SizeOf<BITMAPINFOHEADER>();
 			RGBQUAD[] pal = ByteArrayToStructureArray<RGBQUAD>(bmpHeaderBuff, offset, (int)bmpHeaderLen - offset);
 			if (hdr.type == AGF_TYPE_32BIT)
 			{
-				read(fd, out ACIFHDR acifHeader, sizeof(ACIFHDR));
+				read(fd, out ACIFHDR acifHeader, Marshal.SizeOf<ACIFHDR>());
 				CurrentProcessData.AgfFile.AcifHeader = acifHeader;
 				read_sect(fd, out var alpha_buff, out _);
 				var colorMap = DecodeColorMapWithAlpha(bmi, buff, pal, alpha_buff);
@@ -305,7 +306,7 @@ namespace AGF2BMP2AGF
 			return bytes;
 		}
 
-		private static unsafe void write_bmp(string filename,
+		private static void write_bmp(string filename,
 			byte[] buff,
 			int width,
 			int height,
@@ -313,16 +314,15 @@ namespace AGF2BMP2AGF
 			RGBQUAD[] palArray,
 			bool skipPalette)
 		{
-			BITMAPFILEHEADER bmf = new BITMAPFILEHEADER();
-			BITMAPINFOHEADER bmi = new BITMAPINFOHEADER();
-
+			var bmf = new BITMAPFILEHEADER();
+			var bmi = new BITMAPINFOHEADER();
 			bmf.bfType = 0x4D42;
-			var paletteSize = skipPalette ? 0 : (sizeof(RGBQUAD) * (palArray?.Length ?? 0));
-			var offBits = (uint)(sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER) + paletteSize);
-			bmf.bfSize = offBits + (uint)buff.Length;
-			bmf.bfOffBits = offBits;
+			var paletteSize = skipPalette ? 0 : (Marshal.SizeOf<RGBQUAD>() * (palArray?.Length ?? 0));
+			var offBits = Marshal.SizeOf<BITMAPFILEHEADER>() + Marshal.SizeOf<BITMAPINFOHEADER>() + paletteSize;
+			bmf.bfSize = (uint) (offBits + buff.Length);
+			bmf.bfOffBits = (uint) offBits;
 
-			bmi.biSize = (uint)sizeof(BITMAPINFOHEADER);
+			bmi.biSize = (uint)Marshal.SizeOf<BITMAPINFOHEADER>();
 			bmi.biWidth = width;
 			bmi.biHeight = height;
 			bmi.biPlanes = 1;
@@ -332,8 +332,8 @@ namespace AGF2BMP2AGF
 			CurrentProcessData.OutBmpFile.Bmi = bmi;
 			//CurrentProcessData.OutBmpFile.Data = buff.ToArray();
 			var fileStream = File.OpenWrite(filename);
-			fileStream.Write(Operation.StructToBytes(bmf), 0, sizeof(BITMAPFILEHEADER));
-			fileStream.Write(Operation.StructToBytes(bmi), 0, sizeof(BITMAPINFOHEADER));
+			fileStream.Write(Operation.StructToBytes(bmf), 0, Marshal.SizeOf<BITMAPFILEHEADER>());
+			fileStream.Write(Operation.StructToBytes(bmi), 0, Marshal.SizeOf<BITMAPINFOHEADER>());
 			var paletteAndMap = depth_bytes == 1 && !skipPalette
 				? (palArray ?? throw new ArgumentNullException(nameof(palArray), "A palette must exist for 8Bpp image."))
 						.SelectMany(StructToBytes).Concat(buff).ToArray()
@@ -341,18 +341,18 @@ namespace AGF2BMP2AGF
 			fileStream.Write(paletteAndMap, 0, paletteAndMap.Length);
 			fileStream.Close();
 		}
-		private static unsafe void read_sect(int fd, out byte[] out_buff, out ulong out_len)
+		private static void read_sect(int fd, out byte[] out_buff, out ulong out_len)
 		{
-			read(fd, out AGFSECTHDR hdr, sizeof(AGFSECTHDR));
+			read(fd, out AGFSECTHDR hdr, Marshal.SizeOf<AGFSECTHDR>());
 			var len = hdr.length;
 			var buff = read(fd, (int)len);
 
 			out_len = hdr.original_length;
-			out_buff = len == out_len ? buff : UnpackLZSS(buff, len, out_len);
+			out_buff = len == out_len ? buff : UnpackLZSS(buff, (int) out_len);
 		}
 
 		// ReSharper disable once UnusedParameter.Local
-		private static unsafe void write_sect(int fileHandle, byte[] data, int? setOutLen = null)
+		private static void write_sect(int fileHandle, byte[] data, int? setOutLen = null)
 		{
 			AGFSECTHDR sectHdr;
 			byte[] out_buff = data;
@@ -366,18 +366,19 @@ namespace AGF2BMP2AGF
 			sectHdr.length = (uint)out_len;//(uint)data.Length;
 			sectHdr.original_length = (uint)data.Length;
 			sectHdr.original_length2 = (uint)data.Length;
-			FileHandles[fileHandle].Write(Operation.StructToBytes(sectHdr), 0, sizeof(AGFSECTHDR));
+			FileHandles[fileHandle].Write(Operation.StructToBytes(sectHdr), 0, Marshal.SizeOf<AGFSECTHDR>());
 			FileHandles[fileHandle].Write(out_buff, 0, out_len);
 		}
 
-		private static byte[] UnpackLZSS(byte[] buff, ulong len, ulong outLen)
+		private static byte[] UnpackLZSS(byte[] inputData, int outLen)
 		{
-			return Compression.UnpackLZSS(buff, len, outLen);
+			return Compression.UnpackLZSS(inputData, outLen);
 		}
 
-		private static byte[] PackLZSS(byte[] buff, ulong len, ref int outLen)
+		// ReSharper disable once UnusedMember.Local
+		private static byte[] PackLZSS(byte[] inputData, int outLen)
 		{
-			return Compression.PackLZSS(buff, len, ref outLen);
+			return Compression.PackLZSS(inputData, outLen);
 		}
 	}
 
