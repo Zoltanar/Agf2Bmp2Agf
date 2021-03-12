@@ -86,7 +86,7 @@ namespace AGF2BMP2AGF
 		{
 			Bmi = bmi;
 			EncodedData = encodedData?.ToArray();
-			PalArray = pal.ToArray();
+			PalArray = pal?.ToArray();
 			AlphaBuff = alphaBuff?.ToArray();
 			DecodedData = decodedData?.ToArray();
 		}

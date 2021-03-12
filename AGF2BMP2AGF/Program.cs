@@ -1,12 +1,11 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
-using static AGF2BMP2AGF.Algorithm;
-#if DEBUG
 using System.Linq;
-using System.Text.RegularExpressions;
-#endif
+using static AGF2BMP2AGF.Algorithm;
 
 // ReSharper disable InconsistentNaming
+
 
 namespace AGF2BMP2AGF
 {
@@ -14,10 +13,16 @@ namespace AGF2BMP2AGF
 	{
 		internal const ConsoleColor ErrorColor = ConsoleColor.Red;
 		private const ConsoleColor WarningColor = ConsoleColor.Yellow;
-
-#if DEBUG
-		private static readonly Regex ArgsParser = new(" *[^\";]* *| *\"[^\";]*\" *", RegexOptions.Compiled);
-#endif
+		internal const ConsoleColor SuccessColor = ConsoleColor.Green;
+		
+		private static string Version
+		{
+			get
+			{
+				var ver = typeof(Program).Assembly.GetName().Version;
+				return $"v{ver.Major}.{ver.Minor}";
+			}
+		}
 
 		internal static void Print(ConsoleColor color, string message, params object[] formatted)
 		{
@@ -30,10 +35,6 @@ namespace AGF2BMP2AGF
 		{
 			var argv = Environment.GetCommandLineArgs();
 			int res = -1;
-#if DEBUG
-			while (true)
-			{
-#endif
 				try
 				{
 					res = Main2(argv);
@@ -43,23 +44,15 @@ namespace AGF2BMP2AGF
 					Print(ErrorColor, ex.ToString());
 				}
 #if DEBUG
-				argv = new[] { argv[0], null, null, null, null, };
-				Console.WriteLine("DEBUG: Enter new argument string...");
-				var newArgsIn = Console.ReadLine();
-				if (string.IsNullOrWhiteSpace(newArgsIn)) return res;
-				var matches = ArgsParser.Matches(newArgsIn);
-				var newArgs = matches.Cast<Match>().Where(m => !string.IsNullOrWhiteSpace(m.Value)).Take(4).Select(v => v.Value).ToArray();
-				for (int i = 0; i < newArgs.Length; i++)
-				{
-					argv[i + 1] = newArgs[i].Trim();
-				}
-			}
+			Console.WriteLine("Press any key to exit...");
+			Console.ReadKey(true);
 #endif
 			return res;
 		}
 
 		private static int Main2(string[] argv)
 		{
+			var watch = Stopwatch.StartNew();
 			if (argv.Length < 2)
 			{
 				PrintHelp(argv[0]);
@@ -75,73 +68,60 @@ namespace AGF2BMP2AGF
 			}
 			Print(WarningColor, runParameters.Description);
 			var result = Run(runParameters);
+			watch.Stop();
+			if (!runParameters.IsFileMode) Print(result == 0 ? SuccessColor : ErrorColor, $"Completed in {watch.Elapsed:hh\\:mm\\:ss\\.ffff}");
 			return result;
 		}
 
 		private static int Run(RunParameters runParameters)
 		{
 			var files = runParameters.GetFiles();
-			return runParameters.Mode switch
-			{
-				ProcessMode.Unpack => Unpack(files),
-				ProcessMode.Pack => Pack(files),
-				ProcessMode.UnpackAndPack => UnpackAndPack(files),
-				_ => throw new ArgumentOutOfRangeException()
-			};
-		}
-
-		private static int UnpackAndPack(ConvertFileData[] files)
-		{
 			bool anyFailure = false;
-			foreach (var (inputFile, outputFile, _, intermediateBmp) in files)
+			int index = 0;
+			string formatString = new string(Enumerable.Repeat('0', files.Length.ToString().Length).ToArray());
+			foreach (var file in files)
 			{
+				index++;
+				//reset current data.
 				CurrentProcessData = new ProcessData();
-				int inputFileHandle = OpenFileOrDie(inputFile, FileMode.Open);
-				Algorithm.Unpack(inputFileHandle, inputFile, intermediateBmp);
-				int unpackedFileHandle = OpenFileOrDie(intermediateBmp, FileMode.Open);
-				int xAgfF = OpenFileOrDie(outputFile, FileMode.Create);
-				var result = Algorithm.Pack(unpackedFileHandle, xAgfF);
+				if (files.Length > 1) Print(WarningColor, file.GetDescription(index, files.Length, formatString));
+				var result = file.Mode switch
+				{
+					ProcessMode.Unpack => Unpack(file),
+					ProcessMode.Pack => Pack(file),
+					ProcessMode.UnpackAndPack => UnpackAndPack(file),
+					_ => throw new ArgumentOutOfRangeException()
+				};
 				if (result != 0) anyFailure = true;
 			}
 			return anyFailure ? -1 : 0;
 		}
 
-		private static int Pack(ConvertFileData[] files)
+		private static int UnpackAndPack(ConvertFileData file)
 		{
-			bool anyFailure = false;
-			foreach (var (inputFile, outputFile, agfFile, _) in files)
-			{
-				Algorithm.CurrentProcessData = new ProcessData();
-				int agfFileHandle = OpenFileOrDie(agfFile, FileMode.Open);
-				Algorithm.Unpack(agfFileHandle, agfFile, null);
-				int inputFileHandle = OpenFileOrDie(inputFile, FileMode.Open);
-				int outputFileHandle = OpenFileOrDie(outputFile, FileMode.Create);
-				var result = Algorithm.Pack(inputFileHandle, outputFileHandle);
-				if (result != 0) anyFailure = true;
-			}
-			return anyFailure ? -1 : 0;
+			var (inputFile, outputFile, _, intermediateBmp) = file;
+			int inputFileHandle = OpenFileOrDie(inputFile, FileMode.Open);
+			Algorithm.Unpack(inputFileHandle, inputFile, intermediateBmp);
+			int unpackedFileHandle = OpenFileOrDie(intermediateBmp, FileMode.Open);
+			int xAgfF = OpenFileOrDie(outputFile, FileMode.Create);
+			return Algorithm.Pack(unpackedFileHandle, xAgfF);
 		}
 
-		private static int Unpack(ConvertFileData[] files)
+		private static int Pack(ConvertFileData file)
 		{
-			bool anyFailure = false;
-			foreach (var (inputFile, outputFile, _, _) in files)
-			{
-				Algorithm.CurrentProcessData = new ProcessData();
-				int fd = OpenFileOrDie(inputFile, FileMode.Open);
-				var result = Algorithm.Unpack(fd, inputFile, outputFile);
-				if (result != 0) anyFailure = true;
-			}
-			return anyFailure ? -1 : 0;
+			var (inputFile, outputFile, agfFile, _) = file;
+			int agfFileHandle = OpenFileOrDie(agfFile, FileMode.Open);
+			Algorithm.Unpack(agfFileHandle, agfFile, null);
+			int inputFileHandle = OpenFileOrDie(inputFile, FileMode.Open);
+			int outputFileHandle = OpenFileOrDie(outputFile, FileMode.Create);
+			return Algorithm.Pack(inputFileHandle, outputFileHandle);
 		}
 
-		private static string Version
+		private static int Unpack(ConvertFileData file)
 		{
-			get
-			{
-				var ver = typeof(Program).Assembly.GetName().Version;
-				return $"v{ver.Major}.{ver.Minor}";
-			}
+			var (inputFile, outputFile, _, _) = file;
+			int fd = OpenFileOrDie(inputFile, FileMode.Open);
+			return Algorithm.Unpack(fd, inputFile, outputFile);
 		}
 
 		private static void PrintHelp(string thisFile)
@@ -176,7 +156,6 @@ switch:
 			// ReSharper restore StringLiteralTypo
 			Print(WarningColor, help);
 		}
-
 	}
 
 	internal enum ProcessMode

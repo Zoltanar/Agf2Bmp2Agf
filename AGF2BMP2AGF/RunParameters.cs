@@ -49,7 +49,7 @@ namespace AGF2BMP2AGF
 			$"{Mode}: [{(IsFileMode ? "F" : "D")}] " +
 			$"{Path.GetFileName(InputPath)}->{Path.GetFileName(OutputPath)}" +
 			$"{(Mode == ProcessMode.Pack ? $" Original AGF: {Path.GetFileName(OriginalAgfPath)}" : string.Empty)}";
-
+		
 		public RunParameters(string[] argv)
 		{
 			var @switch = argv[1];
@@ -115,7 +115,7 @@ namespace AGF2BMP2AGF
 
 		public ConvertFileData[] GetFiles()
 		{
-			if (IsFileMode) return new[] { new ConvertFileData(InputPath, OutputPath, OriginalAgfPath, IntermediateBmpPath) };
+			if (IsFileMode) return new[] { new ConvertFileData(InputPath, OutputPath, OriginalAgfPath, IntermediateBmpPath, Mode) };
 			var inputDirectory = new DirectoryInfo(InputPath);
 			var outputDirectory = new DirectoryInfo(OutputPath);
 			outputDirectory.Create();
@@ -137,18 +137,18 @@ namespace AGF2BMP2AGF
 						{
 							Debug.Assert(agfDirectory != null, nameof(agfDirectory) + " != null");
 							var agfFilePath = Path.Combine(agfDirectory.FullName, Path.GetFileNameWithoutExtension(file.Name) + agfExt);
-							if (File.Exists(agfFilePath)) list.Add(new ConvertFileData(file.FullName, outputFilePath, agfFilePath, null));
+							if (File.Exists(agfFilePath)) list.Add(new ConvertFileData(file.FullName, outputFilePath, agfFilePath, null, Mode));
 							else Program.Print(Program.ErrorColor, $"Did not find AGF file for {file.FullName}");
 							break;
 						}
 					case ProcessMode.UnpackAndPack:
 						{
 							var intermediateBmp = Path.Combine(IntermediateBmpPath, Path.GetFileNameWithoutExtension(file.Name) + ".BMP");
-							list.Add(new ConvertFileData(file.FullName, outputFilePath, null, intermediateBmp));
+							list.Add(new ConvertFileData(file.FullName, outputFilePath, null, intermediateBmp, Mode));
 							break;
 						}
 					default:
-						list.Add(new ConvertFileData(file.FullName, outputFilePath, null, null));
+						list.Add(new ConvertFileData(file.FullName, outputFilePath, null, null, Mode));
 						break;
 				}
 			}
@@ -158,25 +158,35 @@ namespace AGF2BMP2AGF
 
 	internal struct ConvertFileData
 	{
-		public ConvertFileData(string inputFile, string output, string originalAgf, string intermediateBmp)
+		public ConvertFileData(string input, string output, string originalAgf, string intermediateBmp,
+			ProcessMode processMode)
 		{
-			InputFile = inputFile;
+			Input = input;
 			Output = output;
 			OriginalAgf = originalAgf;
 			IntermediateBmp = intermediateBmp;
+			Mode = processMode;
 		}
 
-		public string InputFile { get; set; }
+		public ProcessMode Mode { get; set; }
+
+		public string Input { get; set; }
 		public string Output { get; set; }
 		public string OriginalAgf { get; set; }
 		public string IntermediateBmp { get; set; }
-
+		
 		public void Deconstruct(out string input, out string output, out string originalAgf, out string intermediateBmp)
 		{
-			input = InputFile;
+			input = Input;
 			output = Output;
 			originalAgf = OriginalAgf;
 			intermediateBmp = IntermediateBmp;
+		}
+
+		public string GetDescription(int index, int filesLength,string formatString)
+		{
+			return $"\t{index.ToString(formatString)}/{filesLength} {Path.GetFileName(Input)}->{Path.GetFileName(Output)}" +
+			       $"{(Mode == ProcessMode.Pack ? $" Original AGF: {Path.GetFileName(OriginalAgf)}" : string.Empty)}";
 		}
 	}
 }
