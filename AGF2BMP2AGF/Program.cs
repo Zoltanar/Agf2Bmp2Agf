@@ -9,13 +9,13 @@ using static AGF2BMP2AGF.Algorithm;
 
 namespace AGF2BMP2AGF
 {
-	internal static class Program
+	public static class Program
 	{
 		internal const ConsoleColor ErrorColor = ConsoleColor.Red;
 		private const ConsoleColor WarningColor = ConsoleColor.Yellow;
 		internal const ConsoleColor SuccessColor = ConsoleColor.Green;
 		
-		private static string Version
+		public static string Version
 		{
 			get
 			{

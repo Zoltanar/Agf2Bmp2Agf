@@ -3,13 +3,16 @@ using System.Text;
 // ReSharper disable FieldCanBeMadeReadOnly.Global
 // ReSharper disable InconsistentNaming
 // ReSharper disable IdentifierTypo
+// ReSharper disable MemberCanBePrivate.Global
+// ReSharper disable UnusedMember.Global
 
 namespace AGF2BMP2AGF
 {
 	[StructLayout(LayoutKind.Sequential)]
-	unsafe struct AGFHDR
+	public unsafe struct AGFHDR
 	{
-		public fixed byte signature[4]; // "", "ACGF"
+		//Should be ACGF
+		public fixed byte signature[4];
 		public uint type;
 		public uint unknown;
 
@@ -33,7 +36,8 @@ namespace AGF2BMP2AGF
 	[StructLayout(LayoutKind.Sequential)]
 	public unsafe struct ACIFHDR
 	{
-		public fixed byte signature[4]; // "ACIF"
+		// Should be ACIF
+		public fixed byte signature[4]; 
 		public uint type;
 		public uint unknown;
 		public uint original_length;

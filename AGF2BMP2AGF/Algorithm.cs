@@ -8,14 +8,14 @@ using static AGF2BMP2AGF.Operation;
 
 namespace AGF2BMP2AGF
 {
-	internal static class Algorithm
+	public static class Algorithm
 	{
 		private const ulong AGF_TYPE_24BIT = 1;
 		private const ulong AGF_TYPE_32BIT = 2;
 		private static bool useExistingPal = true;
 
 		internal static ProcessData CurrentProcessData = new();
-		internal static readonly Dictionary<int, FileStream> FileHandles = new();
+		private static readonly Dictionary<int, FileStream> FileHandles = new();
 
 		private static unsafe void read_bmp(int fd, out byte[] buffer, out long length, out BITMAPINFOHEADER bmi)
 		{
@@ -83,7 +83,7 @@ namespace AGF2BMP2AGF
 			}
 		}
 
-		internal static unsafe int Unpack(int fd, string filename, string out_filename)
+		public static unsafe int Unpack(int fd, string filename, string out_filename)
 		{
 			read(fd, out AGFHDR hdr, sizeof(AGFHDR));
 			CurrentProcessData.AgfFile.FileName = filename;
@@ -170,24 +170,7 @@ namespace AGF2BMP2AGF
 			CurrentProcessData.Decoding = new DecodingData(bmi, encodedData, palArray, alphaBuff, decodedData);
 			return decodedData;
 		}
-
-		private static byte[] DecodeColorMapNoAlpha(BITMAPINFOHEADER bmi, byte[] encodedData)
-		{
-			var bytesPerPixel = bmi.biBitCount / 8;
-			//the stride must be padded to 4 bytes
-			uint rgb_stride = (uint)((bmi.biWidth * bytesPerPixel + 3) & ~3);
-			byte[] decodedData = new byte[bmi.biHeight * rgb_stride];
-			if (bmi.biBitCount == 8)
-			{ 
-				//if both input and output are 8bpp, we just copy the same byte array.
-				return encodedData.ToArray();
-			}
-			else
-			{
-				return encodedData.ToArray();
-			}
-		}
-
+		
 		private static void EncodeColorMapNoAlpha(byte[] decodedData, BITMAPINFOHEADER bmi, RGBQUAD[] palBuff, out byte[] encodedData)
 		{/*
 			var bytesPerPixel = bmi.biBitCount / 8;
@@ -299,7 +282,7 @@ namespace AGF2BMP2AGF
 			FileHandles.Remove(fileHandle);
 		}
 
-		internal static int OpenFileOrDie(string filename, FileMode fileMode)
+		public static int OpenFileOrDie(string filename, FileMode fileMode)
 		{
 			if (!File.Exists(filename) && fileMode != FileMode.Create && fileMode != FileMode.CreateNew) throw new FileNotFoundException("File to convert was not found", filename);
 			var fileStream = File.Open(filename, fileMode);

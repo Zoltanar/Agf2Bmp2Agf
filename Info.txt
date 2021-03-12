@@ -1,2 +1,5 @@
 Next Features:
-Add Unit Tests
+Add Unit tests for Repack and re-unpack.
+Pause if key is hit (Console.KeyAvailable)
+better command parsing (switches don't need to be in order, only path parameters, if no mode switch, assume unpacking)
+add switch to log errors only
