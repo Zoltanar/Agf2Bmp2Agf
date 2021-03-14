@@ -12,7 +12,8 @@ namespace AGF2BMP2AGF
 	{
 		internal const ConsoleColor ErrorColor = ConsoleColor.Red;
 		private const ConsoleColor WarningColor = ConsoleColor.Yellow;
-		internal const ConsoleColor SuccessColor = ConsoleColor.Green;
+		private const ConsoleColor SuccessColor = ConsoleColor.Green;
+		private static volatile int ParallelErrors;
 
 		public static string Version
 		{
@@ -86,45 +87,85 @@ namespace AGF2BMP2AGF
 		private static int Run(RunParameters runParameters)
 		{
 			var files = runParameters.GetFiles();
-			int index = 0;
 			int errors = 0;
 			string formatString = new string(Enumerable.Repeat('0', files.Length.ToString().Length).ToArray());
-			foreach (var file in files)
+			if (runParameters.Parallel && runParameters.Mode == ProcessMode.Unpack)
 			{
-				index++;
-				//reset current data.
-				CurrentProcessData = new ProcessData();
-				if (files.Length > 1)
+				ParallelErrors = 0;
+				files.AsParallel().ForAll(data => ProcessFileParallel(data, runParameters.LogErrorsOnly));
+				errors = ParallelErrors;
+			}
+			else
+			{
+				foreach (var file in files)
 				{
-					if (Console.KeyAvailable)
-					{
-						//read key available to skip
-						Console.ReadKey(true);
-						Print(WarningColor,"Key pressed, press Escape to stop or any other key to continue...");
-						var key = Console.ReadKey(true);
-						if (key.Key == ConsoleKey.Escape) return errors;
-					}
-					if (runParameters.LogErrorsOnly) Print(WarningColor, $"Processing file {index.ToString(formatString)}/{files.Length}", true);
-					else Print(WarningColor, file.GetDescription(index, files.Length, formatString));
-				}
-				try
-				{
-					var result = file.Mode switch
-					{
-						ProcessMode.Unpack => Unpack(file),
-						ProcessMode.Pack => Pack(file),
-						ProcessMode.UnpackAndPack => UnpackAndPack(file),
-						_ => throw new ArgumentOutOfRangeException()
-					};
-					if (!result) errors++;
-				}
-				catch (Exception ex)
-				{
-					errors++;
-					Print(ErrorColor, $"\t{file.GetDescription(index, files.Length, formatString)} - Failed: {ex}");
+					//if it returns false, that means user stopped it.
+					if (!ProcessFile(runParameters, files, formatString, file, ref errors)) return errors;
 				}
 			}
 			return errors;
+		}
+
+		private static bool ProcessFile(RunParameters runParameters, ConvertFileData[] files, string formatString,
+			ConvertFileData file, ref int errors)
+		{
+			//reset current data.
+			CurrentProcessData = new ProcessData();
+			if (files.Length > 1)
+			{
+				if (Console.KeyAvailable)
+				{
+					//read key available to skip
+					Console.ReadKey(true);
+					Print(WarningColor, "Key pressed, press Escape to stop or any other key to continue...");
+					var key = Console.ReadKey(true);
+					if (key.Key == ConsoleKey.Escape) return false;
+				}
+
+				if (runParameters.LogErrorsOnly)
+					Print(WarningColor, $"Processing file {file.Index.ToString(formatString)}/{files.Length}", true);
+				else Print(WarningColor, file.GetDescription(files.Length, formatString));
+			}
+
+			try
+			{
+				var result = file.Mode switch
+				{
+					ProcessMode.Unpack => Unpack(file),
+					ProcessMode.Pack => Pack(file),
+					ProcessMode.UnpackAndPack => UnpackAndPack(file),
+					_ => throw new ArgumentOutOfRangeException()
+				};
+				if (!result) errors++;
+			}
+			catch (Exception ex)
+			{
+				errors++;
+				Print(ErrorColor, $"\t{file.GetDescription(files.Length, formatString)} - Failed: {ex}");
+			}
+
+			return true;
+		}
+
+		private static void ProcessFileParallel(ConvertFileData file, bool logErrorsOnly)
+		{
+			//reset current data.
+			CurrentProcessData = new ProcessData();
+			try
+			{
+				var success = file.Mode switch
+				{
+					ProcessMode.Unpack => Unpack(file),
+					ProcessMode.Pack => Pack(file),
+					ProcessMode.UnpackAndPack => UnpackAndPack(file),
+					_ => throw new ArgumentOutOfRangeException()
+				};
+				if(!success || !logErrorsOnly) Print(success ? SuccessColor : ErrorColor, $"\t{file.GetDescription(null, null)}");
+			}
+			catch (Exception ex)
+			{
+				Print(ErrorColor, $"\t{file.GetDescription(null,null)} - Failed: {ex}");
+			}
 		}
 
 		private static bool UnpackAndPack(ConvertFileData file)
