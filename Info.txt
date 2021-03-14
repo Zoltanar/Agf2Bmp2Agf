@@ -1,5 +1,2 @@
 Next Features:
-Add Unit tests for Repack and re-unpack.
-Pause if key is hit (Console.KeyAvailable)
-better command parsing (switches don't need to be in order, only path parameters, if no mode switch, assume unpacking)
-Add enumerated files mode
+Add enumerated files (for directory mode)

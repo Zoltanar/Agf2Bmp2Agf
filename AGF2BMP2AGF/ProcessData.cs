@@ -2,7 +2,7 @@
 
 namespace AGF2BMP2AGF
 {
-	internal class ProcessData
+	public class ProcessData
 	{
 		public FileData AgfFile { get; } = new();
 		public FileData OutBmpFile { get; } = new();
@@ -11,20 +11,16 @@ namespace AGF2BMP2AGF
 		public DecodingData Encoding { get; set; }
 	}
 
-	internal class FileData
+	public class FileData
 	{
 		public string FileName { get; set; }
 		public BITMAPFILEHEADER Bmf { get; set; }
 		public BITMAPINFOHEADER Bmi { get; set; }
 		public AGFHDR AgfHeader { get; set; }
 		public ACIFHDR AcifHeader { get; set; }
-		//public byte[] Data { get; set; }
-		//public byte[] AlphaBuff { get; set; }
-		//public byte[] Buff { get; set; }
-		//public int PalLength { get; set; }
 	}
 
-	internal class DecodingData
+	public class DecodingData
 	{
 		public BITMAPINFOHEADER Bmi { get; }
 		public byte[] DecodedData { get; }

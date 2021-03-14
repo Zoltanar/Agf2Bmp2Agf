@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
 using static AGF2BMP2AGF.Algorithm;
 
@@ -97,6 +96,14 @@ namespace AGF2BMP2AGF
 				CurrentProcessData = new ProcessData();
 				if (files.Length > 1)
 				{
+					if (Console.KeyAvailable)
+					{
+						//read key available to skip
+						Console.ReadKey(true);
+						Print(WarningColor,"Key pressed, press Escape to stop or any other key to continue...");
+						var key = Console.ReadKey(true);
+						if (key.Key == ConsoleKey.Escape) return errors;
+					}
 					if (runParameters.LogErrorsOnly) Print(WarningColor, $"Processing file {index.ToString(formatString)}/{files.Length}", true);
 					else Print(WarningColor, file.GetDescription(index, files.Length, formatString));
 				}
@@ -109,7 +116,7 @@ namespace AGF2BMP2AGF
 						ProcessMode.UnpackAndPack => UnpackAndPack(file),
 						_ => throw new ArgumentOutOfRangeException()
 					};
-					if (result != 0) errors++;
+					if (!result) errors++;
 				}
 				catch (Exception ex)
 				{
@@ -120,31 +127,22 @@ namespace AGF2BMP2AGF
 			return errors;
 		}
 
-		private static int UnpackAndPack(ConvertFileData file)
+		private static bool UnpackAndPack(ConvertFileData file)
 		{
 			var (inputFile, outputFile, _, intermediateBmp) = file;
-			int inputFileHandle = OpenFileOrDie(inputFile, FileMode.Open);
-			Algorithm.Unpack(inputFileHandle, inputFile, intermediateBmp);
-			int unpackedFileHandle = OpenFileOrDie(intermediateBmp, FileMode.Open);
-			int xAgfF = OpenFileOrDie(outputFile, FileMode.Create);
-			return Algorithm.Pack(unpackedFileHandle, xAgfF);
+			return Algorithm.Unpack(inputFile, intermediateBmp) && Algorithm.Pack(intermediateBmp, outputFile);
 		}
 
-		private static int Pack(ConvertFileData file)
+		private static bool Pack(ConvertFileData file)
 		{
 			var (inputFile, outputFile, agfFile, _) = file;
-			int agfFileHandle = OpenFileOrDie(agfFile, FileMode.Open);
-			Algorithm.Unpack(agfFileHandle, agfFile, null);
-			int inputFileHandle = OpenFileOrDie(inputFile, FileMode.Open);
-			int outputFileHandle = OpenFileOrDie(outputFile, FileMode.Create);
-			return Algorithm.Pack(inputFileHandle, outputFileHandle);
+			return Algorithm.Unpack(agfFile, null) && Algorithm.Pack(inputFile, outputFile);
 		}
 
-		private static int Unpack(ConvertFileData file)
+		private static bool Unpack(ConvertFileData file)
 		{
 			var (inputFile, outputFile, _, _) = file;
-			int fd = OpenFileOrDie(inputFile, FileMode.Open);
-			return Algorithm.Unpack(fd, inputFile, outputFile);
+			return Algorithm.Unpack( inputFile, outputFile);
 		}
 
 		private static void PrintHelp(string thisFile)
