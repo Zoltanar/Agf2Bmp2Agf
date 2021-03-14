@@ -191,6 +191,8 @@ Usage: {thisFile} [switches] <input> [output] [original_agf]
 
   other switches, not mandatory:
          -e  Log errors only (affects directory mode only)
+         -r  Recursive mode  (affects directory mode only) process files in subdirectories and output with same directory structure
+         -sc force processing to use a single thread only, rather than in parallel
   
   input: path to input file or directory (in which case all BMP files in directory will be the inputs).
 
