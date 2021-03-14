@@ -14,45 +14,45 @@ namespace AGF2BMP2AGF
 		private string _originalAgfPath;
 		private string _intermediateBmpPath;
 
-		public ProcessMode Mode { get; set; }
+		private ProcessMode _mode;
 		public bool IsFileMode { get; }
-		public bool LogErrorsOnly { get; set; }
-		public bool Recursive { get; set; }
-		public bool Parallel { get; set; } = true;
-		public string InputPath
+		public bool LogErrorsOnly { get; private set; }
+		private bool _recursive;
+		public bool Parallel { get; private set; } = true;
+		private string InputPath
 		{
 			get => _inputPath;
 			set => _inputPath = Path.GetFullPath(value);
 		}
-		public string OutputPath
+		private string OutputPath
 		{
 			get => _outputPath;
 			set => _outputPath = Path.GetFullPath(value);
 		}
-		public string OriginalAgfPath
+		private string OriginalAgfPath
 		{
 			get => _originalAgfPath;
 			set => _originalAgfPath = Path.GetFullPath(value);
 		}
-		public string IntermediateBmpPath
+		private string IntermediateBmpPath
 		{
 			get => _intermediateBmpPath;
 			set => _intermediateBmpPath = Path.GetFullPath(value);
 		}
-		public bool Valid { get; set; }
+		public bool Valid { get; private set; }
 		public string ErrorMessage
 		{
 			get => _errorMessage;
-			set
+			private set
 			{
 				Valid = string.IsNullOrWhiteSpace(value);
 				_errorMessage = value;
 			}
 		}
 		public string Description =>
-			$"{Mode}: [{(IsFileMode ? "F" : "D")}] " +
+			$"{_mode}: [{(IsFileMode ? "F" : "D")}] " +
 			$"{Path.GetFileName(InputPath)}->{Path.GetFileName(OutputPath)}" +
-			$"{(Mode == ProcessMode.Pack ? $" Original AGF: {Path.GetFileName(OriginalAgfPath)}" : string.Empty)}";
+			$"{(_mode == ProcessMode.Pack ? $" (AGF: {Path.GetFileName(OriginalAgfPath)})" : string.Empty)}";
 		
 		public RunParameters(string[] argv)
 		{
@@ -69,7 +69,7 @@ namespace AGF2BMP2AGF
 			if (pathArgs.Length > 1 && !string.IsNullOrWhiteSpace(pathArgs[1])) OutputPath = pathArgs[1];
 			else
 			{
-				OutputPath = Mode switch
+				OutputPath = _mode switch
 				{
 					ProcessMode.Unpack => IsFileMode ? ReplaceExtension(InputPath, ".BMP") : $"{InputPath}_BMP",
 					ProcessMode.Pack => IsFileMode ? ReplaceExtension(InputPath, ".AGF") : $"{InputPath}_X_AGF",
@@ -77,7 +77,7 @@ namespace AGF2BMP2AGF
 					_ => throw new ArgumentOutOfRangeException()
 				};
 			}
-			if (Mode == ProcessMode.Pack)
+			if (_mode == ProcessMode.Pack)
 			{
 				if (pathArgs.Length > 2 && !string.IsNullOrWhiteSpace(pathArgs[2])) OriginalAgfPath = pathArgs[2];
 				else
@@ -93,7 +93,7 @@ namespace AGF2BMP2AGF
 					return;
 				}
 			}
-			if (Mode == ProcessMode.UnpackAndPack)
+			if (_mode == ProcessMode.UnpackAndPack)
 			{
 				IntermediateBmpPath = IsFileMode ? ReplaceExtension(InputPath, "_X.BMP") : $"{InputPath}_X_BMP";
 			}
@@ -105,7 +105,7 @@ namespace AGF2BMP2AGF
 			var filePathList = new List<string>();
 			filePathArgs = null;
 			//if no switch present, mode is Unpack.
-			Mode = ProcessMode.Unpack;
+			_mode = ProcessMode.Unpack;
 			//flag used to ensure no more than one mode switch is present
 			bool isModeSet = false;
 			if (argv.Length < 2)
@@ -123,7 +123,7 @@ namespace AGF2BMP2AGF
 							ErrorMessage = "More than one mode switch found, only one argument should indicate process mode.";
 							return false;
 						}
-						Mode = ProcessMode.Unpack;
+						_mode = ProcessMode.Unpack;
 						isModeSet = true;
 						continue;
 					case "-p":
@@ -132,7 +132,7 @@ namespace AGF2BMP2AGF
 							ErrorMessage = "More than one mode switch found, only one argument should indicate process mode.";
 							return false;
 						}
-						Mode = ProcessMode.Pack;
+						_mode = ProcessMode.Pack;
 						isModeSet = true;
 						continue;
 					case "-x":
@@ -141,14 +141,14 @@ namespace AGF2BMP2AGF
 							ErrorMessage = "More than one mode switch found, only one argument should indicate process mode.";
 							return false;
 						}
-						Mode = ProcessMode.UnpackAndPack;
+						_mode = ProcessMode.UnpackAndPack;
 						isModeSet = true;
 						continue;
 					case "-e":
 						LogErrorsOnly = true;
 						continue;
 					case "-r":
-						Recursive = true;
+						_recursive = true;
 						continue;
 					case "-sc":
 						Parallel = false;
@@ -175,42 +175,42 @@ namespace AGF2BMP2AGF
 
 		public ConvertFileData[] GetFiles()
 		{
-			if (IsFileMode) return new[] { new ConvertFileData(InputPath, OutputPath, OriginalAgfPath, IntermediateBmpPath, Mode, null, null, null, 1) };
+			if (IsFileMode) return new[] { new ConvertFileData(InputPath, OutputPath, OriginalAgfPath, IntermediateBmpPath, _mode, null, null, null, 1) };
 			var inputDirectory = new DirectoryInfo(InputPath);
 			var outputDirectory = new DirectoryInfo(OutputPath);
 			outputDirectory.Create();
-			if (Mode == ProcessMode.UnpackAndPack) Directory.CreateDirectory(IntermediateBmpPath);
+			if (_mode == ProcessMode.UnpackAndPack) Directory.CreateDirectory(IntermediateBmpPath);
 			var agfDirectory = !string.IsNullOrWhiteSpace(OriginalAgfPath) ? new DirectoryInfo(OriginalAgfPath) : null;
 			if (!inputDirectory.Exists) throw new DirectoryNotFoundException("Input directory does not exist.");
-			if (Mode == ProcessMode.Pack && (agfDirectory == null || !agfDirectory.Exists)) throw new DirectoryNotFoundException("AGF directory does not exist.");
-			var inputExt = Mode == ProcessMode.Pack ? ".BMP" : ".AGF";
-			var outputExt = Mode == ProcessMode.Unpack ? ".BMP" : ".AGF";
-			var agfExt = ".AGF";
-			var inputFiles = inputDirectory.GetFiles($"*{inputExt}", Recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
+			if (_mode == ProcessMode.Pack && (agfDirectory == null || !agfDirectory.Exists)) throw new DirectoryNotFoundException("AGF directory does not exist.");
+			var inputExt = _mode == ProcessMode.Pack ? ".BMP" : ".AGF";
+			var outputExt = _mode == ProcessMode.Unpack ? ".BMP" : ".AGF";
+			const string agfExt = ".AGF";
+			var inputFiles = inputDirectory.GetFiles($"*{inputExt}", _recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
 			var list = new List<ConvertFileData>();
 			int index = 0;
 			foreach (var file in inputFiles)
 			{
 				index++;
 				var outputFilePath = ReplacePath(file.FullName, inputDirectory.FullName, outputDirectory.FullName, outputExt, out var partialInputPath, out var partialOutputPath);
-				switch (Mode)
+				switch (_mode)
 				{
 					case ProcessMode.Pack:
 						{
 							Debug.Assert(agfDirectory != null, nameof(agfDirectory) + " != null");
 							var agfFilePath = ReplacePath(file.FullName, inputDirectory.FullName, agfDirectory.FullName, agfExt, out _, out var partialAgfPath);
-							if (File.Exists(agfFilePath)) list.Add(new ConvertFileData(file.FullName, outputFilePath, agfFilePath, null, Mode, partialInputPath, partialOutputPath, partialAgfPath, index));
+							if (File.Exists(agfFilePath)) list.Add(new ConvertFileData(file.FullName, outputFilePath, agfFilePath, null, _mode, partialInputPath, partialOutputPath, partialAgfPath, index));
 							else Program.Print(Program.ErrorColor, $"Did not find AGF file for {file.FullName}");
 							break;
 						}
 					case ProcessMode.UnpackAndPack:
 						{
 							var intermediateBmp = Path.Combine(IntermediateBmpPath, Path.GetFileNameWithoutExtension(file.Name) + ".BMP");
-							list.Add(new ConvertFileData(file.FullName, outputFilePath, null, intermediateBmp, Mode, partialInputPath, partialOutputPath, null, index));
+							list.Add(new ConvertFileData(file.FullName, outputFilePath, null, intermediateBmp, _mode, partialInputPath, partialOutputPath, null, index));
 							break;
 						}
 					default:
-						list.Add(new ConvertFileData(file.FullName, outputFilePath, null, null, Mode, partialInputPath, partialOutputPath, null, index));
+						list.Add(new ConvertFileData(file.FullName, outputFilePath, null, null, _mode, partialInputPath, partialOutputPath, null, index));
 						break;
 				}
 			}
@@ -245,16 +245,16 @@ namespace AGF2BMP2AGF
 			Index = index;
 		}
 
-		public string Input { get; set; }
-		public string Output { get; set; }
-		public string OriginalAgf { get; set; }
-		public string IntermediateBmp { get; set; }
-		public string PartialInput { get; set; }
-		public string PartialOutput { get; set; }
-		public string PartialAgf { get; set; }
-		public ProcessMode Mode { get; set; }
-		public int Index { get; set; }
-		public ProcessData ProcessData { get; set; } = new ();
+		public string Input { get; }
+		public string Output { get; }
+		public string OriginalAgf { get; }
+		public string IntermediateBmp { get; }
+		private string PartialInput { get; }
+		private string PartialOutput { get; }
+		private string PartialAgf { get; }
+		public ProcessMode Mode { get; }
+		public int Index { get; }
+		public ProcessData ProcessData { get; } = new ();
 
 		public void Deconstruct(out string input, out string output, out string originalAgf, out string intermediateBmp)
 		{

@@ -11,8 +11,7 @@ namespace Agf2Bmp2AgfTest
 		[TestMethod]
 		public void AgfToMpeg()
 		{
-			// ReSharper disable once UnusedVariable
-			const string fileName = @"CSB035BF";
+			//const string fileName = @"CSB035BF";
 			Assert.Inconclusive("Not implemented.");
 		}
 		[TestMethod]

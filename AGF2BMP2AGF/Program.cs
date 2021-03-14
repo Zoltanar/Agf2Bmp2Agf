@@ -12,7 +12,7 @@ namespace AGF2BMP2AGF
 		private const ConsoleColor SuccessColor = ConsoleColor.Green;
 		private static volatile int ParallelErrors;
 
-		public static string Version
+		private static string Version
 		{
 			get
 			{
@@ -21,7 +21,7 @@ namespace AGF2BMP2AGF
 			}
 		}
 
-		public static bool RewriteWithNextLine { get; set; }
+		private static bool RewriteWithNextLine { get; set; }
 
 		internal static void Print(ConsoleColor color, string message, bool rewriteWithNextLine = false)
 		{

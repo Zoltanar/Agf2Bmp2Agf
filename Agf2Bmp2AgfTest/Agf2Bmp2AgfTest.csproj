@@ -100,7 +100,9 @@
     <None Include="Original AGF\CSB035BF.AGF">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Include="Original AGF\MVA001A.AGF" />
+    <None Include="Original AGF\MVA001A.AGF">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="Original AGF\SO001.AGF">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

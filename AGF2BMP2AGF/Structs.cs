@@ -31,7 +31,7 @@ namespace AGF2BMP2AGF
 			}
 			return s;
 		}
-	};
+	}
 
 	[StructLayout(LayoutKind.Sequential)]
 	public unsafe struct ACIFHDR
@@ -59,7 +59,7 @@ namespace AGF2BMP2AGF
 			}
 			return s;
 		}
-	};
+	}
 
 	public struct AGFSECTHDR
 	{
@@ -67,7 +67,7 @@ namespace AGF2BMP2AGF
 		// ReSharper disable once NotAccessedField.Global
 		public uint original_length2; // why?
 		public uint length;
-	};
+	}
 
 	[StructLayout(LayoutKind.Sequential, Pack = 2)]
 	public struct BITMAPFILEHEADER

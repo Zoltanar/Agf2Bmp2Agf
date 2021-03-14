@@ -11,8 +11,8 @@ namespace Agf2Bmp2AgfTest
 {
 	public static class Common
 	{
-		public const string BmpOutputFolder = @"Output BMP";
-		public const string AgfOutputFolder = @"Output AGF";
+		private const string BmpOutputFolder = @"Output BMP";
+		private const string AgfOutputFolder = @"Output AGF";
 
 		static Common()
 		{
