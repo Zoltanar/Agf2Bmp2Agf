@@ -188,9 +188,10 @@ namespace AGF2BMP2AGF
 			var agfExt = ".AGF";
 			var inputFiles = inputDirectory.GetFiles($"*{inputExt}", Recursive ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly);
 			var list = new List<ConvertFileData>();
-			int index = 1;
+			int index = 0;
 			foreach (var file in inputFiles)
 			{
+				index++;
 				var outputFilePath = ReplacePath(file.FullName, inputDirectory.FullName, outputDirectory.FullName, outputExt, out var partialInputPath, out var partialOutputPath);
 				switch (Mode)
 				{
@@ -226,7 +227,7 @@ namespace AGF2BMP2AGF
 		}
 	}
 
-	internal struct ConvertFileData
+	internal class ConvertFileData
 	{
 		public ConvertFileData(string input, string output, string originalAgf, string intermediateBmp,
 			ProcessMode processMode, 
@@ -253,6 +254,7 @@ namespace AGF2BMP2AGF
 		public string PartialAgf { get; set; }
 		public ProcessMode Mode { get; set; }
 		public int Index { get; set; }
+		public ProcessData ProcessData { get; set; } = new ();
 
 		public void Deconstruct(out string input, out string output, out string originalAgf, out string intermediateBmp)
 		{

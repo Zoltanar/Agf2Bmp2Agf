@@ -5,8 +5,6 @@ namespace AGF2BMP2AGF
 	public class ProcessData
 	{
 		public FileData AgfFile { get; } = new();
-		public FileData OutBmpFile { get; } = new();
-		public FileData BmpFile { get; } = new();
 		public DecodingData Decoding { get; set; }
 		public DecodingData Encoding { get; set; }
 	}

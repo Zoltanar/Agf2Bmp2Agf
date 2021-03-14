@@ -1,10 +1,7 @@
 ﻿using System;
 using System.Diagnostics;
 using System.Linq;
-using static AGF2BMP2AGF.Algorithm;
-
 // ReSharper disable InconsistentNaming
-
 
 namespace AGF2BMP2AGF
 {
@@ -75,12 +72,10 @@ namespace AGF2BMP2AGF
 			Print(WarningColor, runParameters.Description);
 			var errors = Run(runParameters);
 			watch.Stop();
-			if (!runParameters.IsFileMode)
-			{
-				var completedString = $"Completed in {watch.Elapsed:hh\\:mm\\:ss\\.ffff}";
-				if (errors > 0) Print(ErrorColor, $"{completedString} ({errors} errors)");
-				else Print(SuccessColor, completedString);
-			}
+			if (runParameters.IsFileMode) return errors;
+			var completedString = $"Completed in {watch.Elapsed:hh\\:mm\\:ss\\.ffff}";
+			if (errors > 0) Print(ErrorColor, $"{completedString} ({errors} errors)");
+			else Print(SuccessColor, completedString);
 			return errors;
 		}
 
@@ -89,7 +84,7 @@ namespace AGF2BMP2AGF
 			var files = runParameters.GetFiles();
 			int errors = 0;
 			string formatString = new string(Enumerable.Repeat('0', files.Length.ToString().Length).ToArray());
-			if (runParameters.Parallel && runParameters.Mode == ProcessMode.Unpack)
+			if (runParameters.Parallel)
 			{
 				ParallelErrors = 0;
 				files.AsParallel().ForAll(data => ProcessFileParallel(data, runParameters.LogErrorsOnly));
@@ -100,18 +95,16 @@ namespace AGF2BMP2AGF
 				foreach (var file in files)
 				{
 					//if it returns false, that means user stopped it.
-					if (!ProcessFile(runParameters, files, formatString, file, ref errors)) return errors;
+					if (!ProcessFile(runParameters, files.Length, formatString, file, ref errors)) return errors;
 				}
 			}
 			return errors;
 		}
 
-		private static bool ProcessFile(RunParameters runParameters, ConvertFileData[] files, string formatString,
+		private static bool ProcessFile(RunParameters runParameters, int fileCount, string formatString,
 			ConvertFileData file, ref int errors)
 		{
-			//reset current data.
-			CurrentProcessData = new ProcessData();
-			if (files.Length > 1)
+			if (fileCount > 1)
 			{
 				if (Console.KeyAvailable)
 				{
@@ -121,10 +114,8 @@ namespace AGF2BMP2AGF
 					var key = Console.ReadKey(true);
 					if (key.Key == ConsoleKey.Escape) return false;
 				}
-
-				if (runParameters.LogErrorsOnly)
-					Print(WarningColor, $"Processing file {file.Index.ToString(formatString)}/{files.Length}", true);
-				else Print(WarningColor, file.GetDescription(files.Length, formatString));
+				if (runParameters.LogErrorsOnly) Print(WarningColor, $"Processing file {file.Index.ToString(formatString)}/{fileCount}", true);
+				else Print(WarningColor, file.GetDescription(fileCount, formatString));
 			}
 
 			try
@@ -141,7 +132,7 @@ namespace AGF2BMP2AGF
 			catch (Exception ex)
 			{
 				errors++;
-				Print(ErrorColor, $"\t{file.GetDescription(files.Length, formatString)} - Failed: {ex}");
+				Print(ErrorColor, $"\t{file.GetDescription(fileCount, formatString)} - Failed: {ex}");
 			}
 
 			return true;
@@ -149,8 +140,6 @@ namespace AGF2BMP2AGF
 
 		private static void ProcessFileParallel(ConvertFileData file, bool logErrorsOnly)
 		{
-			//reset current data.
-			CurrentProcessData = new ProcessData();
 			try
 			{
 				var success = file.Mode switch
@@ -171,19 +160,19 @@ namespace AGF2BMP2AGF
 		private static bool UnpackAndPack(ConvertFileData file)
 		{
 			var (inputFile, outputFile, _, intermediateBmp) = file;
-			return Algorithm.Unpack(inputFile, intermediateBmp) && Algorithm.Pack(intermediateBmp, outputFile);
+			return Algorithm.Unpack(inputFile, intermediateBmp, file.ProcessData) && Algorithm.Pack(intermediateBmp, outputFile, file.ProcessData);
 		}
 
 		private static bool Pack(ConvertFileData file)
 		{
 			var (inputFile, outputFile, agfFile, _) = file;
-			return Algorithm.Unpack(agfFile, null) && Algorithm.Pack(inputFile, outputFile);
+			return Algorithm.Unpack(agfFile, null, file.ProcessData) && Algorithm.Pack(inputFile, outputFile, file.ProcessData);
 		}
 
 		private static bool Unpack(ConvertFileData file)
 		{
 			var (inputFile, outputFile, _, _) = file;
-			return Algorithm.Unpack( inputFile, outputFile);
+			return Algorithm.Unpack( inputFile, outputFile, file.ProcessData);
 		}
 
 		private static void PrintHelp(string thisFile)

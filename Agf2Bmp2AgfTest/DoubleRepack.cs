@@ -9,9 +9,17 @@ namespace Agf2Bmp2AgfTest
 	public class DoubleRepack
 	{
 		[TestMethod]
+		public void AgfToMpeg()
+		{
+			// ReSharper disable once UnusedVariable
+			const string fileName = @"CSB035BF";
+			Assert.Inconclusive("Not implemented.");
+		}
+		[TestMethod]
 		public void Agf32BppToBmp32Bpp()
 		{
-			Assert.Inconclusive($"No file for this format found for test: {nameof(Agf32BppToBmp32Bpp)}");
+			const string fileName = @"CSB035BF";
+			RunDoubleRepackTest(fileName);
 		}
 
 		[TestMethod]
@@ -37,26 +45,26 @@ namespace Agf2Bmp2AgfTest
 
 		private static void RunDoubleRepackTest(string fileName)
 		{
-			Algorithm.CurrentProcessData = new ProcessData();
+			var packProcessData = new ProcessData();
 			//Pack original BMP into AGF
 			var originalAgf = GetOriginalAgf(fileName);
 			var originalBmpFileName = GetOriginalBmp(fileName);
 			var outputAgfFileName = GetOutputAgf(fileName + "DR");
-			//packing require first unpacking of the original AGF (data needed is saved to memory rather than file.
-			if (!Algorithm.Unpack(originalAgf, null)) Assert.Fail("Failed to unpack file.");
-			if (!Algorithm.Pack(originalBmpFileName, outputAgfFileName)) Assert.Fail("Failed to pack file.");
+			//packing requires first unpacking of the original AGF (data needed is saved to memory rather than file.
+			if (!Algorithm.Unpack(originalAgf, null, packProcessData)) Assert.Fail("Failed to unpack file.");
+			if (!Algorithm.Pack(originalBmpFileName, outputAgfFileName, packProcessData)) Assert.Fail("Failed to pack file.");
 
-			Algorithm.CurrentProcessData = new ProcessData();
+			var unpackProcessData = new ProcessData();
 			//Unpack output AGF into new BMP
 			var outputBmpFileName = GetOutputBmp(fileName + "DR");
-			if (!Algorithm.Unpack(outputAgfFileName, outputBmpFileName)) Assert.Fail("Failed to unpack file.");
+			if (!Algorithm.Unpack(outputAgfFileName, outputBmpFileName, unpackProcessData)) Assert.Fail("Failed to unpack file.");
 
 			//Compare output BMP against original BMP
 			CompareBitmapFiles(originalBmpFileName, outputBmpFileName);
 
 			//Pack output BMP into new AGF
 			var doublePackedAgfFileName = GetOutputAgf(fileName + "DR2");
-			if (!Algorithm.Pack(outputBmpFileName, doublePackedAgfFileName)) Assert.Fail("Failed to pack file.");
+			if (!Algorithm.Pack(outputBmpFileName, doublePackedAgfFileName, unpackProcessData)) Assert.Fail("Failed to pack file.");
 
 			//Compare first output AGF with new output AGF
 			var oBytes = File.ReadAllBytes(outputAgfFileName);
