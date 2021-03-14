@@ -65,12 +65,6 @@ namespace AGF2BMP2AGF
 		private static int Main2(string[] argv)
 		{
 			var watch = Stopwatch.StartNew();
-			if (argv.Length < 2)
-			{
-				PrintHelp(argv[0]);
-				return -1;
-			}
-			argv = argv.Length == 2 ? new[] { argv[0], "-u", argv[1] } : argv;
 			var runParameters = new RunParameters(argv);
 			if (!runParameters.Valid)
 			{
@@ -79,17 +73,22 @@ namespace AGF2BMP2AGF
 				return -1;
 			}
 			Print(WarningColor, runParameters.Description);
-			var result = Run(runParameters);
+			var errors = Run(runParameters);
 			watch.Stop();
-			if (!runParameters.IsFileMode) Print(result == 0 ? SuccessColor : ErrorColor, $"Completed in {watch.Elapsed:hh\\:mm\\:ss\\.ffff}");
-			return result;
+			if (!runParameters.IsFileMode)
+			{
+				var completedString = $"Completed in {watch.Elapsed:hh\\:mm\\:ss\\.ffff}";
+				if (errors > 0) Print(ErrorColor, $"{completedString} ({errors} errors)");
+				else Print(SuccessColor, completedString);
+			}
+			return errors;
 		}
 
 		private static int Run(RunParameters runParameters)
 		{
 			var files = runParameters.GetFiles();
-			bool anyFailure = false;
 			int index = 0;
+			int errors = 0;
 			string formatString = new string(Enumerable.Repeat('0', files.Length.ToString().Length).ToArray());
 			foreach (var file in files)
 			{
@@ -98,7 +97,7 @@ namespace AGF2BMP2AGF
 				CurrentProcessData = new ProcessData();
 				if (files.Length > 1)
 				{
-					if (runParameters.LogErrorsOnly && runParameters.IsFileMode) Print(WarningColor, $"Processing file {index.ToString(formatString)}/{files.Length}", true);
+					if (runParameters.LogErrorsOnly) Print(WarningColor, $"Processing file {index.ToString(formatString)}/{files.Length}", true);
 					else Print(WarningColor, file.GetDescription(index, files.Length, formatString));
 				}
 				try
@@ -110,15 +109,15 @@ namespace AGF2BMP2AGF
 						ProcessMode.UnpackAndPack => UnpackAndPack(file),
 						_ => throw new ArgumentOutOfRangeException()
 					};
-					if (result != 0) anyFailure = true;
+					if (result != 0) errors++;
 				}
 				catch (Exception ex)
 				{
-					anyFailure = true;
-					Print(ErrorColor, $"{file.GetDescription(index, files.Length, formatString)} - Failed: {ex}");
+					errors++;
+					Print(ErrorColor, $"\t{file.GetDescription(index, files.Length, formatString)} - Failed: {ex}");
 				}
 			}
-			return anyFailure ? -1 : 0;
+			return errors;
 		}
 
 		private static int UnpackAndPack(ConvertFileData file)
