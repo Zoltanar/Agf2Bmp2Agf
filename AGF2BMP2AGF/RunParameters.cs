@@ -220,7 +220,7 @@ namespace AGF2BMP2AGF
 		private static string ReplacePath(string inputFile, string inputDirectory, string outputDirectory,
 			string outputExt, out string partialInputPath, out string partialOutputPath)
 		{
-			partialInputPath = inputFile.Substring(inputDirectory.Length + 1);
+			partialInputPath = Path.GetFileName(inputFile);
 			partialOutputPath = ReplaceExtension(partialInputPath, outputExt);
 			var outputFilePath = Path.Combine(outputDirectory ?? inputDirectory, partialOutputPath);
 			return outputFilePath;
