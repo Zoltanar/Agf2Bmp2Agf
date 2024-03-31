@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using EushullyExtractionUtils;
 
 namespace AGF2BMP2AGF
 {
@@ -200,7 +201,7 @@ namespace AGF2BMP2AGF
 							Debug.Assert(agfDirectory != null, nameof(agfDirectory) + " != null");
 							var agfFilePath = ReplacePath(file.FullName, inputDirectory.FullName, agfDirectory.FullName, agfExt, out _, out var partialAgfPath);
 							if (File.Exists(agfFilePath)) list.Add(new ConvertFileData(file.FullName, outputFilePath, agfFilePath, null, _mode, partialInputPath, partialOutputPath, partialAgfPath, index));
-							else Program.Print(Program.ErrorColor, $"Did not find AGF file for {file.FullName}");
+							else ConsoleUtils.PrintError($"Did not find AGF file for {file.FullName}");
 							break;
 						}
 					case ProcessMode.UnpackAndPack:
