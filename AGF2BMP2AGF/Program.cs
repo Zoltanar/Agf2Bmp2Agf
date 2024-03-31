@@ -7,10 +7,10 @@ namespace AGF2BMP2AGF
 {
 	public static class Program
 	{
-		internal const ConsoleColor ErrorColor = ConsoleColor.Red;
-		private const ConsoleColor WarningColor = ConsoleColor.Yellow;
-		private const ConsoleColor SuccessColor = ConsoleColor.Green;
-		private static volatile int ParallelErrors;
+		public const ConsoleColor ErrorColor = ConsoleColor.Red;
+        public const ConsoleColor WarningColor = ConsoleColor.Yellow;
+        public const ConsoleColor SuccessColor = ConsoleColor.Green;
+        public static volatile int ParallelErrors;
 
 		private static string Version
 		{
@@ -23,7 +23,7 @@ namespace AGF2BMP2AGF
 
 		private static bool RewriteWithNextLine { get; set; }
 
-		internal static void Print(ConsoleColor color, string message, bool rewriteWithNextLine = false)
+		public static void Print(ConsoleColor color, string message, bool rewriteWithNextLine = false)
 		{
 			if (RewriteWithNextLine)
 			{

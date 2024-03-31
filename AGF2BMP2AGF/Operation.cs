@@ -42,6 +42,5 @@ namespace AGF2BMP2AGF
 			}
 			return list.ToArray();
 		}
-
-	}
+    }
 }

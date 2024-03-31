@@ -2,7 +2,7 @@
 
 namespace AGF2BMP2AGF
 {
-	internal static class Compression
+	public static class Compression
 	{
 		private const string LibraryName = "LzssCpp.dll";
 

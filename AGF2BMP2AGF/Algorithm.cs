@@ -238,14 +238,14 @@ namespace AGF2BMP2AGF
 			return ind;
 		}
 
-		private static FileStream OpenFileOrDie(string filename, FileMode fileMode)
+		public static FileStream OpenFileOrDie(string filename, FileMode fileMode)
 		{
 			Directory.CreateDirectory(Directory.GetParent(filename).FullName);
 			var fileStream = File.Open(filename, fileMode);
 			return fileStream;
 		}
 
-		private static void ReadToStructure<T>(Stream stream, out T structure, int size) where T : struct
+		public static void ReadToStructure<T>(Stream stream, out T structure, int size) where T : struct
 		{
 			var bytes = new byte[size];
 			stream.Read(bytes, 0, size);
